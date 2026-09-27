@@ -80,6 +80,9 @@ function fn() {
     if (erros) {
       karate.fail('\n' + erros);
     }
+    var caminho = String(req.url).replace(/^https?:\/\/[^\/]+/, '').split('?')[0];
+    karate.log('Contrato válido: ' + req.method + ' ' + caminho + ' (status ' + karate.get('responseStatus')
+      + ') está em conformidade com spec/' + ambiente + '/rhnetsocial.json');
   };
 
   return config;
