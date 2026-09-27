@@ -106,11 +106,18 @@ jobs:
       - name: Preparar publicação
         id: publicacao
         if: always() && hashFiles('target/allure-report/index.html') != ''
+        env:
+          VERSAO: ${{ github.event.client_payload.versao }}
+          RESULTADO: ${{ steps.testes.outcome == 'success' && 'passou' || 'falhou' }}
+          EXECUCAO_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           mkdir -p publicacao
           cp target/allure-report/index.html publicacao/index.html
           cp ".allure/historico-$AMBIENTE.jsonl" publicacao/ 2> /dev/null || true
-          echo "$(TZ=America/Sao_Paulo date '+%d/%m/%Y %H:%M')|${{ steps.testes.outcome }}" > publicacao/status.txt
+          # Dados do cartão da página inicial: números da execução + resultado, versão e link
+          jq --arg resultado "$RESULTADO" --arg versao "$VERSAO" --arg url "$EXECUCAO_URL" \
+             '. + {resultado: $resultado, execucaoUrl: $url} + (if $versao == "" then {} else {versao: $versao} end)' \
+             target/resumo-execucao.json > publicacao/status.json
           echo "relatorio=true" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4

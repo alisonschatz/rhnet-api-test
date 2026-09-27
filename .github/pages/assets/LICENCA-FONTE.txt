@@ -1,0 +1,5 @@
+PT Root UI VF
+Copyright (c) 2018 ParaType Inc., ParaType Ltd.
+
+Fonte utilizada pelo Allure Report, redistribuída aqui sob a SIL Open Font License, versão 1.1.
+Texto da licença: https://openfontlicense.org/open-font-license-official-text/

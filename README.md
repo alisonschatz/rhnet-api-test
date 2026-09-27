@@ -33,13 +33,16 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
 ├── spec/
 │   ├── hml/  rhnetsocial.json, INFO.md # spec oficial e histórico de cada ambiente
 │   └── prd/  rhnetsocial.json, INFO.md
-├── allurerc.mjs                        # configuração do Allure Report (histórico por ambiente)
+├── allurerc.mjs                        # configuração do Allure Report (idioma, nome, histórico por ambiente)
 ├── rodar.cmd / rodar.sh                # atalho para rodar localmente
 ├── pom.xml                             # dependências do projeto
 ├── mvnw / mvnw.cmd / .mvn/             # Maven Wrapper (não precisa instalar Maven)
 ├── .github/
 │   ├── workflows/api-tests.yml         # pipeline (hml e prd)
-│   └── scripts/publicar-relatorio.sh   # publicação do relatório no GitHub Pages
+│   ├── scripts/                        # publicação no GitHub Pages
+│   │   ├── publicar-relatorio.sh       #   publica o relatório de um ambiente
+│   │   └── gerar_pagina_inicial.py     #   monta a página inicial a partir dos resultados
+│   └── pages/                          # template da página inicial (visual do Allure) e fonte
 └── src/test/
     ├── resources/
     │   ├── contrato-ignorar.txt        # exceções de contrato aceitas (com motivo)
@@ -149,6 +152,15 @@ https://<org>.github.io/rhnet-api-tests/prd/    último relatório de produção
   guarda versões anteriores dos relatórios.
 - O histórico de tendências fica na pasta `.historico/` da branch, que o GitHub Pages não publica.
 - A publicação é feita por `.github/scripts/publicar-relatorio.sh`.
+
+**Página inicial:** um cartão por ambiente com o resultado, os números de cenários (total, que
+passaram e que falharam), data, duração, versão implantada, spec em uso e os links para o relatório
+e para a execução no GitHub Actions. Segue o mesmo sistema de design do Allure Report (fonte, cores,
+temas claro e escuro). Para alterar textos ou layout, edite `.github/pages/index.html`; o conteúdo
+dos cartões é montado por `.github/scripts/gerar_pagina_inicial.py`.
+
+**Idioma:** os relatórios Allure abrem em português por padrão (`allurerc.mjs`). Quem trocar o idioma
+no próprio relatório mantém a escolha, que fica salva no navegador.
 
 ---
 
