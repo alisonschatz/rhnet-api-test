@@ -15,6 +15,7 @@
         <karate.version>1.5.2</karate.version>
         <openapi.validator.version>2.46.0</openapi.validator.version>
         <logback.version>1.2.13</logback.version>
+        <cucumber.reporting.version>5.11.0</cucumber.reporting.version>
         <surefire.version>3.5.2</surefire.version>
     </properties>
 
@@ -37,6 +38,13 @@
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
             <version>${logback.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Painel de resultados com gráficos e tendências (target/cucumber-html-reports) -->
+        <dependency>
+            <groupId>net.masterthought</groupId>
+            <artifactId>cucumber-reporting</artifactId>
+            <version>${cucumber.reporting.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

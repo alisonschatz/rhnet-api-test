@@ -52,7 +52,8 @@ public class MascaradorLog implements HttpLogModifier {
         return mascarar(response);
     }
 
-    private static String mascarar(String corpo) {
+    /** Mascara dados sensíveis em qualquer texto (usado também nos relatórios). */
+    public static String mascarar(String corpo) {
         return corpo == null ? null : JSON_SENSIVEL.matcher(corpo).replaceAll("$1\"***\"");
     }
 }

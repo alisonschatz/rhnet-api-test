@@ -77,8 +77,10 @@ todo dado criado é removido ao final do cenário (ver convenções).
                 │   └── LocalizadorJson.java    localiza linha e caminho na spec
                 ├── dados/              #   massa de dados sintética
                 │   └── GeradorDados.java       CPF válido, nomes, datas
-                └── log/                #   logs
-                    └── MascaradorLog.java      oculta token, CPF, salário (LGPD)
+                ├── log/                #   logs
+                │   └── MascaradorLog.java      oculta token, CPF, salário (LGPD)
+                └── relatorio/          #   relatórios gerados ao final da execução
+                    └── GeradorRelatorios.java  painel de resultados e resumo da execução
 ```
 
 Onde colocar algo novo:
@@ -122,7 +124,7 @@ preencha os dois tokens.
 
 No Prompt de Comando (cmd), o `.\` é opcional.
 
-Ao terminar, o relatório abre sozinho no navegador.
+Ao terminar, o painel de resultados abre sozinho no navegador (ver [Relatórios](#relatórios)).
 
 As URLs de cada ambiente ficam em `ambientes.json`, na raiz do projeto.
 
@@ -130,6 +132,24 @@ Sem o atalho, o comando equivalente é `.\mvnw test -Dkarate.env=hml` (ou `./mvn
 
 Pela IDE: rode a classe `RhnetTest` normalmente. As credenciais são lidas do `.env.hml`;
 para prd, adicione `-Dkarate.env=prd` nas VM options.
+
+---
+
+## Relatórios
+
+Cada execução gera três relatórios, com públicos e usos diferentes:
+
+| Relatório | Onde | Para quê |
+|---|---|---|
+| **Painel de resultados** | `target/cucumber-html-reports/overview-features.html` | Visão geral: gráficos por funcionalidade, cenário e tag, ambiente, versão, spec em uso e tendência das últimas execuções. É o que o `rodar` abre ao final. |
+| **Detalhe técnico** | `target/karate-reports/karate-summary.html` | Investigação de falhas: cada passo, com a requisição e a resposta completas (dados sensíveis mascarados). |
+| **Resumo da execução** | `target/resumo-execucao.md` | Tabela de resultados e falhas em Markdown. No GitHub Actions, aparece direto na página da execução. |
+
+**Tendências:** o painel mostra a evolução das últimas 20 execuções de cada ambiente. Localmente,
+o histórico fica em `target/tendencias-<ambiente>.json` e é mantido enquanto a pasta `target` existir.
+
+**No pipeline:** o resumo aparece na página da execução (aba Actions), e o painel e o detalhe
+técnico ficam no artefato `relatorio-<ambiente>`, disponível por 90 dias (padrão do GitHub).
 
 ---
 
@@ -171,13 +191,37 @@ no próximo deploy.
 | `@fluxo` | Fluxos completos (criar -> remover) |
 | `@ignore` | Features auxiliares ou modelos; nunca executam diretamente |
 
+### Padrão de escrita
+
+O relatório é lido por QA e desenvolvimento, então cada cenário deve ser compreensível sem
+abrir o código:
+
+```gherkin
+@regressao
+Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
+  O sistema_id é obrigatório. A API deve recusar a consulta e indicar
+  o campo faltante em "erros.sistema_id".
+
+  When method get
+  Then status 400
+  And match response contains { sucesso: false, status: 400 }
+  * karate.log('Consulta rejeitada como esperado. Mensagem da API: "' + response.erros.sistema_id[0] + '"')
+  * validarContrato()
+```
+
+- **Título:** o que é feito e o que se espera, com o status quando relevante.
+- **Descrição** (logo abaixo do título): a regra de negócio verificada, em uma ou duas frases.
+- **`karate.log(...)`:** nos pontos-chave, o que foi confirmado, com os valores reais.
+- **`validarContrato()`:** após cada resposta. Quando o contrato está correto, ele registra
+  "Contrato válido: ... está em conformidade com spec/<ambiente>/rhnetsocial.json".
+
 ### Convenções
 
 1. **Uma feature por recurso**, nomeada pelo recurso da API.
-2. **O cenário descreve o comportamento esperado** ("Sem X retorna 400"), não a implementação.
+2. **Todo cenário segue o padrão de escrita acima.**
 3. **Toda resposta testada chama `validarContrato()`** logo após o `status`.
 4. **Nada de ID fixo.** Busque um registro existente e use o ID dele; os dados de hml e prd são diferentes.
-5. **Quem cria, remove.** O ID vai para `criados` antes de qualquer assert, e o `afterScenario` limpa.
+5. **Quem cria, remove.** O ID vai para `criados` antes de qualquer verificação, e o `afterScenario` limpa.
 6. **Só contas de teste e dados sintéticos, com o prefixo `QA AUTO`.** Nunca use dados reais (LGPD).
 7. **Credenciais só em variáveis de ambiente ou secrets.**
 8. **Exceção de contrato só com motivo**, registrada em `contrato-ignorar.txt`.

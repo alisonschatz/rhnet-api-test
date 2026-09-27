@@ -39,17 +39,16 @@ if "%TAGS%"=="" (
 )
 set RESULTADO=%ERRORLEVEL%
 
-set RELATORIO=target\karate-reports\karate-summary.html
+set PAINEL=target\cucumber-html-reports\overview-features.html
+set DETALHE=target\karate-reports\karate-summary.html
 echo.
-if %RESULTADO%==0 (
-  echo === TODOS OS TESTES PASSARAM ===
-  if exist "%RELATORIO%" start "" "%RELATORIO%"
-  exit /b 0
-)
-if exist "%RELATORIO%" (
-  echo === HA TESTES FALHANDO - veja o relatorio aberto no navegador ===
-  start "" "%RELATORIO%"
-) else (
+if not exist "%DETALHE%" (
   echo === A EXECUCAO FALHOU ANTES DOS TESTES - veja as mensagens acima ===
+  exit /b %RESULTADO%
 )
+if %RESULTADO%==0 (echo === TODOS OS TESTES PASSARAM ===) else (echo === HA TESTES FALHANDO ===)
+echo.
+echo Painel de resultados:  %PAINEL%
+echo Detalhe tecnico:       %DETALHE%
+if exist "%PAINEL%" (start "" "%PAINEL%") else (start "" "%DETALHE%")
 exit /b %RESULTADO%

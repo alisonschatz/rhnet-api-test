@@ -43,21 +43,24 @@ jobs:
           SCI_PARCEIRO_TOKEN: ${{ secrets.SCI_PARCEIRO_TOKEN }}
           SCI_CLIENTE_TOKEN: ${{ secrets.SCI_CLIENTE_TOKEN }}
           TAGS: ${{ github.event.inputs.tags }}
+          VERSAO_IMPLANTADA: ${{ github.event.client_payload.versao }}
         run: bash mvnw -B --no-transfer-progress test -Dkarate.env=$AMBIENTE ${TAGS:+-Dtags=$TAGS}
 
-      - name: Resumo
+      - name: Resumo da execução
         if: always()
         run: |
-          {
-            echo "## Testes de API - RH NET Social ($AMBIENTE)"
-            echo "- Disparo: \`${{ github.event_name }}\`"
-            echo "- Versão implantada: \`${{ github.event.client_payload.versao || 'n/d' }}\`"
-            echo "- $(head -n 1 spec/$AMBIENTE/INFO.md 2>/dev/null || echo 'Specs: n/d')"
-            echo "- Relatório HTML: artefato **relatorio-karate-$AMBIENTE**"
-          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -f target/resumo-execucao.md ]; then
+            cat target/resumo-execucao.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Testes de API - RH NET Social ($AMBIENTE)" >> "$GITHUB_STEP_SUMMARY"
+            echo "A execução falhou antes dos testes. Veja o log do passo 'Executar testes'." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: relatorio-karate-${{ env.AMBIENTE }}
-          path: target/karate-reports/
+          name: relatorio-${{ env.AMBIENTE }}
+          path: |
+            target/cucumber-html-reports/
+            target/karate-reports/
+          if-no-files-found: ignore

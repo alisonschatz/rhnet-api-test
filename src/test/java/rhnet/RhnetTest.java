@@ -3,6 +3,7 @@ package rhnet;
 import com.intuit.karate.Results;
 import com.intuit.karate.Runner;
 import org.junit.jupiter.api.Test;
+import rhnet.support.relatorio.GeradorRelatorios;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -31,6 +32,7 @@ class RhnetTest {
         }
 
         Results results = runner.parallel(threads);
+        GeradorRelatorios.gerar(results, ambiente);
         assertEquals(0, results.getFailCount(), results.getErrorMessages());
     }
 }

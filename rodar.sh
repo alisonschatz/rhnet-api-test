@@ -31,7 +31,8 @@ echo
 bash ./mvnw -B --no-transfer-progress test -Dkarate.env="$AMBIENTE" ${TAGS:+-Dtags=$TAGS}
 RESULTADO=$?
 
-RELATORIO="target/karate-reports/karate-summary.html"
+PAINEL="target/cucumber-html-reports/overview-features.html"
+DETALHE="target/karate-reports/karate-summary.html"
 abrir() {
   if command -v open > /dev/null; then open "$1"
   elif command -v xdg-open > /dev/null; then xdg-open "$1" > /dev/null 2>&1
@@ -39,13 +40,17 @@ abrir() {
 }
 
 echo
+if [[ ! -f "$DETALHE" ]]; then
+  echo "=== A EXECUÇÃO FALHOU ANTES DOS TESTES - veja as mensagens acima ==="
+  exit $RESULTADO
+fi
 if [[ $RESULTADO -eq 0 ]]; then
   echo "=== TODOS OS TESTES PASSARAM ==="
-  [[ -f "$RELATORIO" ]] && abrir "$RELATORIO"
-elif [[ -f "$RELATORIO" ]]; then
-  echo "=== HÁ TESTES FALHANDO - veja o relatório aberto no navegador ==="
-  abrir "$RELATORIO"
 else
-  echo "=== A EXECUÇÃO FALHOU ANTES DOS TESTES - veja as mensagens acima ==="
+  echo "=== HÁ TESTES FALHANDO ==="
 fi
+echo
+echo "Painel de resultados:  $PAINEL"
+echo "Detalhe técnico:       $DETALHE"
+if [[ -f "$PAINEL" ]]; then abrir "$PAINEL"; else abrir "$DETALHE"; fi
 exit $RESULTADO
