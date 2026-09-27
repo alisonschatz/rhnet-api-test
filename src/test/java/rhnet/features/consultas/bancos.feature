@@ -18,7 +18,7 @@ Feature: Bancos - GET /api/v1/bancos
     Then status 200
     And match response contains { sucesso: true, status: 200 }
     And match response.retorno == '#array'
-    * karate.log('Consulta retornou ' + response.retorno.length + ' banco(s) para o sistema ' + sessao.sistemaId + '.')
+    * registrar('Consulta retornou ' + response.retorno.length + ' banco(s) para o sistema ' + sessao.sistemaId + '.')
     * validarContrato()
 
   @regressao
@@ -30,7 +30,7 @@ Feature: Bancos - GET /api/v1/bancos
     Then status 400
     And match response contains { sucesso: false, status: 400 }
     And match response.erros.sistema_id == '#[_ > 0] #string'
-    * karate.log('Consulta rejeitada como esperado. Mensagem da API: "' + response.erros.sistema_id[0] + '"')
+    * registrar('Consulta rejeitada como esperado. Mensagem da API: "' + response.erros.sistema_id[0] + '"')
     * validarContrato()
 
   @regressao
@@ -42,7 +42,7 @@ Feature: Bancos - GET /api/v1/bancos
     When method get
     Then status 200
     And match response.retorno == []
-    * karate.log('Filtro com data futura (2099-12-31 23:59:59) retornou lista vazia, como esperado.')
+    * registrar('Filtro com data futura (2099-12-31 23:59:59) retornou lista vazia, como esperado.')
     * validarContrato()
 
   @regressao
@@ -54,7 +54,7 @@ Feature: Bancos - GET /api/v1/bancos
     When method get
     Then status 400
     And match response contains { sucesso: false, status: 400 }
-    * karate.log('Data em formato inválido (31/12/2024) rejeitada como esperado. Mensagem da API: "' + response.mensagem + '"')
+    * registrar('Data em formato inválido (31/12/2024) rejeitada como esperado. Mensagem da API: "' + response.mensagem + '"')
     * validarContrato()
 
   @regressao
@@ -67,5 +67,5 @@ Feature: Bancos - GET /api/v1/bancos
     When method get
     Then status 401
     And match response.mensagem == '#string'
-    * karate.log('Consulta sem token rejeitada como esperado. Mensagem da API: "' + response.mensagem + '"')
+    * registrar('Consulta sem token rejeitada como esperado. Mensagem da API: "' + response.mensagem + '"')
     * validarContrato()

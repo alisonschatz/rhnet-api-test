@@ -6,7 +6,7 @@ Feature: MODELO - Nome do recurso - GET /api/v1/RECURSO
   Padrão de escrita (é o que aparece no relatório):
   - Título do cenário: o que é feito -> o que se espera. Ex.: "Consulta sem X é rejeitada (400)".
   - Descrição logo abaixo do título: a regra de negócio verificada, em uma ou duas frases.
-  - karate.log(...) nos pontos-chave: o que foi confirmado, com os valores reais.
+  - registrar(...) nos pontos-chave: o que foi confirmado, com os valores reais.
   - validarContrato() após cada resposta.
 
   Background:
@@ -22,7 +22,7 @@ Feature: MODELO - Nome do recurso - GET /api/v1/RECURSO
     Then status 200
     And match response contains { sucesso: true, status: 200 }
     And match response.retorno == '#array'
-    * karate.log('Consulta retornou ' + response.retorno.length + ' registro(s).')
+    * registrar('Consulta retornou ' + response.retorno.length + ' registro(s).')
     * validarContrato()
 
   @regressao
@@ -34,7 +34,7 @@ Feature: MODELO - Nome do recurso - GET /api/v1/RECURSO
     Then status 400
     And match response contains { sucesso: false, status: 400 }
     And match response.erros.CAMPO_OBRIGATORIO == '#[_ > 0] #string'
-    * karate.log('Consulta rejeitada como esperado. Mensagem da API: "' + response.erros.CAMPO_OBRIGATORIO[0] + '"')
+    * registrar('Consulta rejeitada como esperado. Mensagem da API: "' + response.erros.CAMPO_OBRIGATORIO[0] + '"')
     * validarContrato()
 
   @regressao
@@ -52,5 +52,5 @@ Feature: MODELO - Nome do recurso - GET /api/v1/RECURSO
     When method get
     Then status 200
     And match each response.retorno contains { CAMPO_ID: '#(id)' }
-    * karate.log('Filtro por CAMPO_ID = ' + id + ' retornou apenas o registro solicitado.')
+    * registrar('Filtro por CAMPO_ID = ' + id + ' retornou apenas o registro solicitado.')
     * validarContrato()

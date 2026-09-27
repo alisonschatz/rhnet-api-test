@@ -38,13 +38,28 @@ jobs:
           java-version: "21"
           cache: maven
 
+      # Node.js e Allure (baixados pelo plugin) + histórico de tendências por ambiente
+      - name: Restaurar cache do Allure
+        uses: actions/cache@v4
+        with:
+          path: .allure
+          key: allure-${{ env.AMBIENTE }}-${{ github.run_id }}
+          restore-keys: allure-${{ env.AMBIENTE }}-
+
       - name: Executar testes
+        id: testes
+        continue-on-error: true
         env:
           SCI_PARCEIRO_TOKEN: ${{ secrets.SCI_PARCEIRO_TOKEN }}
           SCI_CLIENTE_TOKEN: ${{ secrets.SCI_CLIENTE_TOKEN }}
           TAGS: ${{ github.event.inputs.tags }}
-          VERSAO_IMPLANTADA: ${{ github.event.client_payload.versao }}
         run: bash mvnw -B --no-transfer-progress test -Dkarate.env=$AMBIENTE ${TAGS:+-Dtags=$TAGS}
+
+      - name: Gerar relatório Allure
+        if: always() && hashFiles('target/allure-results/**') != ''
+        env:
+          ALLURE_AMBIENTE: ${{ env.AMBIENTE }}
+        run: bash mvnw -B --no-transfer-progress allure:report
 
       - name: Resumo da execução
         if: always()
@@ -55,12 +70,23 @@ jobs:
             echo "## Testes de API - RH NET Social ($AMBIENTE)" >> "$GITHUB_STEP_SUMMARY"
             echo "A execução falhou antes dos testes. Veja o log do passo 'Executar testes'." >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [ -n "${{ github.event.client_payload.versao }}" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Versão implantada: \`${{ github.event.client_payload.versao }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: relatorio-${{ env.AMBIENTE }}
           path: |
-            target/cucumber-html-reports/
+            target/allure-report/
             target/karate-reports/
           if-no-files-found: ignore
+
+      # Mantém o job como falho quando algum teste falhou (o relatório já foi gerado acima)
+      - name: Resultado final
+        if: steps.testes.outcome == 'failure'
+        run: |
+          echo "Há testes falhando. Veja o resumo e o relatório Allure desta execução."
+          exit 1

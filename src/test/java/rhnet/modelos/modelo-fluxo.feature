@@ -33,7 +33,7 @@ Feature: MODELO - Ciclo de vida de RECURSO
     * if (responseStatus < 300) karate.appendTo('criados', response.CAMPO_ID)
     Then status 201
     * def id = response.CAMPO_ID
-    * karate.log('Registro criado: CAMPO_ID = ' + id + ', nome = "' + payload.nome + '".')
+    * registrar('Registro criado: CAMPO_ID = ' + id + ', nome = "' + payload.nome + '".')
     * validarContrato()
 
     # Consulta
@@ -41,7 +41,7 @@ Feature: MODELO - Ciclo de vida de RECURSO
     When method get
     Then status 200
     And match response contains { nome: '#(payload.nome)' }
-    * karate.log('Consulta confirmou os dados gravados.')
+    * registrar('Consulta confirmou os dados gravados.')
 
     # Atualização
     * def novoNome = Dados.nome()
@@ -49,7 +49,7 @@ Feature: MODELO - Ciclo de vida de RECURSO
     And request { nome: '#(novoNome)' }
     When method put
     Then status 200
-    * karate.log('Registro atualizado: nome = "' + novoNome + '".')
+    * registrar('Registro atualizado: nome = "' + novoNome + '".')
     * validarContrato()
 
     # Remoção
@@ -58,4 +58,4 @@ Feature: MODELO - Ciclo de vida de RECURSO
     Given path '/api/v1/RECURSO', id
     When method get
     Then status 404
-    * karate.log('Registro removido: a consulta após a remoção retornou 404.')
+    * registrar('Registro removido: a consulta após a remoção retornou 404.')

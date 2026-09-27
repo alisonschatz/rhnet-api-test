@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ------------------------------------------------------------
-#  Roda os testes e abre o relatório.
+#  Roda os testes, gera o relatório Allure e o abre.
 #
 #    ./rodar.sh              -> tudo em hml
 #    ./rodar.sh prd          -> tudo em prd
@@ -31,7 +31,17 @@ echo
 bash ./mvnw -B --no-transfer-progress test -Dkarate.env="$AMBIENTE" ${TAGS:+-Dtags=$TAGS}
 RESULTADO=$?
 
-PAINEL="target/cucumber-html-reports/overview-features.html"
+if [[ ! -d "target/allure-results" ]]; then
+  echo
+  echo "=== A EXECUÇÃO FALHOU ANTES DOS TESTES - veja as mensagens acima ==="
+  exit $RESULTADO
+fi
+
+echo
+echo "=== Gerando relatório Allure ==="
+ALLURE_AMBIENTE="$AMBIENTE" bash ./mvnw -B --no-transfer-progress -q allure:report
+
+ALLURE="target/allure-report/index.html"
 DETALHE="target/karate-reports/karate-summary.html"
 abrir() {
   if command -v open > /dev/null; then open "$1"
@@ -40,17 +50,13 @@ abrir() {
 }
 
 echo
-if [[ ! -f "$DETALHE" ]]; then
-  echo "=== A EXECUÇÃO FALHOU ANTES DOS TESTES - veja as mensagens acima ==="
-  exit $RESULTADO
-fi
 if [[ $RESULTADO -eq 0 ]]; then
   echo "=== TODOS OS TESTES PASSARAM ==="
 else
   echo "=== HÁ TESTES FALHANDO ==="
 fi
 echo
-echo "Painel de resultados:  $PAINEL"
-echo "Detalhe técnico:       $DETALHE"
-if [[ -f "$PAINEL" ]]; then abrir "$PAINEL"; else abrir "$DETALHE"; fi
+echo "Relatório Allure:   $ALLURE"
+echo "Detalhe técnico:    $DETALHE"
+if [[ -f "$ALLURE" ]]; then abrir "$ALLURE"; else abrir "$DETALHE"; fi
 exit $RESULTADO

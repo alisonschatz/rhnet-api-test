@@ -1,45 +1,27 @@
 # RH NET Social - Testes de API
 
-Testes automatizados da API **RH NET Social**, em repositório independente do código da
-aplicação. Rodam em **homologação (hml)** e em **produção (prd)**, a cada deploy e sob demanda.
+Testes automatizados dos endpoints da API **RH NET Social**, em repositório independente do
+código da aplicação. Rodam em **homologação (hml)** e em **produção (prd)**, a cada deploy e sob demanda.
 
-**Stack:** Karate 1.5 · Java 21 · Maven (via Maven Wrapper) · GitHub Actions
+**Stack:** Karate 2 · Java 21 · JUnit 6 · Allure Report 3 · Maven (via Maven Wrapper) · GitHub Actions
 
 ---
 
 ## Como funciona
 
 1. O dev faz deploy e o pipeline dele dispara este repositório, informando o ambiente.
-2. O Karate gera o token **uma vez** na API de auth daquele ambiente e roda as features em paralelo.
-3. Cada resposta testada é conferida contra a **spec oficial daquele ambiente**
-   (`spec/<ambiente>/`), baixada e validada pelo QA.
-4. O relatório HTML fica disponível no pipeline.
+2. O Karate gera o token de acesso **uma vez** na API de autenticação e roda as features em paralelo.
+3. Cada resposta testada é conferida contra a **spec oficial do ambiente** (`spec/<ambiente>/rhnetsocial.json`),
+   baixada e validada pelo QA.
+4. Ao final, são gerados o relatório Allure, o relatório técnico do Karate e um resumo da execução.
 
-### Escopo e specs
+### Escopo
 
-O alvo dos testes são os endpoints da **RH NET Social**. A **API de autenticação** é usada
-apenas para gerar o token de acesso: o login é feito uma vez por execução, como etapa de
-preparação. Se o token não for gerado, a execução é interrompida com a causa.
+O alvo dos testes são os endpoints da **RH NET Social**. A **API de autenticação** é usada apenas para
+gerar o token: se ele não for gerado, a execução é interrompida com a causa, antes dos testes.
 
-Cada ambiente tem a sua spec da RH NET Social:
-
-```
-spec/
-├── hml/
-│   ├── rhnetsocial.json    # RH NET Social em homologação
-│   └── INFO.md             # data, versão, responsável e histórico
-└── prd/
-    ├── rhnetsocial.json
-    └── INFO.md
-```
-
-Nas features, `validarContrato()` valida a resposta contra a spec do ambiente em execução.
-
-### Hml e prd sem distinção
-
-Todos os testes rodam nos dois ambientes, inclusive os que criam, alteram e removem dados.
-Isso é seguro porque cada ambiente usa **usuários e contas exclusivos para teste**. Mesmo assim,
-todo dado criado é removido ao final do cenário (ver convenções).
+Todos os testes rodam nos dois ambientes, inclusive os que criam, alteram e removem dados,
+sempre com **usuários e contas exclusivos para teste**. Todo dado criado é removido ao final do cenário.
 
 ---
 
@@ -48,22 +30,27 @@ todo dado criado é removido ao final do cenário (ver convenções).
 ```
 ├── ambientes.json                      # URLs de cada ambiente (hml, prd)
 ├── .env.example                        # modelo do .env.hml / .env.prd (credenciais)
-├── spec/                               # specs oficiais por ambiente (ver acima)
+├── spec/
+│   ├── hml/  rhnetsocial.json, INFO.md # spec oficial e histórico de cada ambiente
+│   └── prd/  rhnetsocial.json, INFO.md
+├── allurerc.mjs                        # configuração do Allure Report (histórico por ambiente)
 ├── rodar.cmd / rodar.sh                # atalho para rodar localmente
 ├── pom.xml                             # dependências do projeto
 ├── mvnw / mvnw.cmd / .mvn/             # Maven Wrapper (não precisa instalar Maven)
 ├── .github/workflows/api-tests.yml     # pipeline (hml e prd)
 └── src/test/
     ├── resources/
-    │   └── contrato-ignorar.txt        # exceções de contrato aceitas (com motivo)
+    │   ├── contrato-ignorar.txt        # exceções de contrato aceitas (com motivo)
+    │   ├── allure.properties           # onde o Allure grava os resultados
+    │   └── logback-test.xml            # logs do console
     └── java/
-        ├── karate-config.js            # configuração global: ambiente, login, validarContrato()
-        ├── logback-test.xml            # configuração de logs
+        ├── karate-config.js            # configuração global: ambiente, token, máscara, helpers
         └── rhnet/
-            ├── RhnetTest.java          # ponto de execução (paralelo, filtro por tags)
+            ├── RhnetTest.java          # ponto de execução (paralelo, tags, Allure)
             │
             ├── features/               # OS TESTES, uma pasta por área da API
-            │   └── consultas/          #   bancos
+            │   └── consultas/
+            │       └── bancos.feature
             │
             ├── modelos/                # modelos para novas features (não executam)
             │
@@ -77,10 +64,8 @@ todo dado criado é removido ao final do cenário (ver convenções).
                 │   └── LocalizadorJson.java    localiza linha e caminho na spec
                 ├── dados/              #   massa de dados sintética
                 │   └── GeradorDados.java       CPF válido, nomes, datas
-                ├── log/                #   logs
-                │   └── MascaradorLog.java      oculta token, CPF, salário (LGPD)
-                └── relatorio/          #   relatórios gerados ao final da execução
-                    └── GeradorRelatorios.java  painel de resultados e resumo da execução
+                └── relatorio/          #   resumo da execução
+                    └── ResumoExecucao.java     tabela de resultados (GitHub Actions)
 ```
 
 Onde colocar algo novo:
@@ -88,33 +73,35 @@ Onde colocar algo novo:
 - **Infraestrutura reutilizável:** a pasta de `support/` da responsabilidade correspondente,
   ou uma pasta nova se for uma responsabilidade nova (ex.: `support/arquivos/` para uploads).
 
-### Variáveis disponíveis nas features
+### Disponível em todas as features
 
-Definidas em `karate-config.js`, sem precisar declarar nada:
+Definido em `karate-config.js`, sem precisar declarar nada:
 
-| Variável | Conteúdo |
+| Nome | Conteúdo |
 |---|---|
 | `baseUrl`, `authUrl` | URLs da RH NET Social e da API de auth do ambiente |
 | `ambiente` | `hml` ou `prd` |
 | `token` | JWT do usuário de teste |
 | `sessao` | Dados do JWT, ex.: `sessao.sistemaId`, `sessao.usuario.dados.empresasVinculadas` |
 | `validarContrato()` | Valida a última resposta contra a spec da RH NET Social do ambiente |
+| `registrar(texto)` | Registra uma verificação em português nos relatórios (Allure e Karate) |
 
 ---
 
 ## Rodando localmente
 
-Pré-requisito (uma vez só): **Java 21** instalado e acesso à rede das APIs (VPN, se for o caso).
+Pré-requisito (uma vez só): **Java 21 ou superior** e acesso à rede das APIs (VPN, se for o caso).
 
 - Windows: `winget install EclipseAdoptium.Temurin.21.JDK`
-- O **Maven não precisa ser instalado**: o projeto usa o [Maven Wrapper](https://maven.apache.org/wrapper/)
-  oficial (`mvnw`), que baixa automaticamente a versão fixada em `.mvn/wrapper/maven-wrapper.properties`.
-  Assim, todos no time e o pipeline usam exatamente a mesma versão.
+- O **Maven não precisa ser instalado**: o Maven Wrapper (`mvnw`) baixa a versão fixada no projeto.
+- O **Allure não precisa ser instalado**: o plugin baixa o Allure e um Node.js próprio para a pasta
+  `.allure` na primeira geração do relatório.
 
-**1. Credenciais:** copie o `.env.example` para `.env.hml` (e `.env.prd`, se for usar) e
-preencha os dois tokens.
+**1. Credenciais:** copie o `.env.example` para `.env.hml` (e `.env.prd`, se for usar) e preencha os tokens.
 
-**2. Rode:**
+**2. URLs:** confira o `ambientes.json`.
+
+**3. Rode:**
 
 | Windows (PowerShell) | Linux / Mac | O que faz |
 |---|---|---|
@@ -122,79 +109,60 @@ preencha os dois tokens.
 | `.\rodar prd` | `./rodar.sh prd` | Tudo em prd |
 | `.\rodar hml smoke` | `./rodar.sh hml smoke` | Só os testes com a tag `@smoke` |
 
-No Prompt de Comando (cmd), o `.\` é opcional.
+Ao terminar, o relatório Allure abre no navegador. No Prompt de Comando (cmd), o `.\` é opcional.
 
-Ao terminar, o painel de resultados abre sozinho no navegador (ver [Relatórios](#relatórios)).
-
-As URLs de cada ambiente ficam em `ambientes.json`, na raiz do projeto.
-
-Sem o atalho, o comando equivalente é `.\mvnw test -Dkarate.env=hml` (ou `./mvnw` no Linux/Mac).
-
-Pela IDE: rode a classe `RhnetTest` normalmente. As credenciais são lidas do `.env.hml`;
-para prd, adicione `-Dkarate.env=prd` nas VM options.
+Sem o atalho: `.\mvnw test -Dkarate.env=hml` e depois `.\mvnw allure:report`.
+Pela IDE: rode a classe `RhnetTest` (para prd, adicione `-Dkarate.env=prd` nas VM options).
 
 ---
 
 ## Relatórios
 
-Cada execução gera três relatórios, com públicos e usos diferentes:
-
 | Relatório | Onde | Para quê |
 |---|---|---|
-| **Painel de resultados** | `target/cucumber-html-reports/overview-features.html` | Visão geral: gráficos por funcionalidade, cenário e tag, ambiente, versão, spec em uso e tendência das últimas execuções. É o que o `rodar` abre ao final. |
-| **Detalhe técnico** | `target/karate-reports/karate-summary.html` | Investigação de falhas: cada passo, com a requisição e a resposta completas (dados sensíveis mascarados). |
-| **Resumo da execução** | `target/resumo-execucao.md` | Tabela de resultados e falhas em Markdown. No GitHub Actions, aparece direto na página da execução. |
+| **Allure** | `target/allure-report/index.html` | Relatório principal: visão geral, gráficos, falhas por categoria, histórico e tendências. Cada passo traz a requisição e a resposta HTTP e as verificações registradas. |
+| **Detalhe técnico (Karate)** | `target/karate-reports/karate-summary.html` | Investigação detalhada de uma falha, passo a passo. |
+| **Resumo da execução** | `target/resumo-execucao.md` | Tabela de resultados. No GitHub Actions, aparece direto na página da execução. |
 
-**Tendências:** o painel mostra a evolução das últimas 20 execuções de cada ambiente. Localmente,
-o histórico fica em `target/tendencias-<ambiente>.json` e é mantido enquanto a pasta `target` existir.
+Dados sensíveis (token, CPF, salário e outros) são mascarados em todos os relatórios, conforme a
+configuração `logging.mask` do `karate-config.js`.
 
-**No pipeline:** o resumo aparece na página da execução (aba Actions), e o painel e o detalhe
-técnico ficam no artefato `relatorio-<ambiente>`, disponível por 90 dias (padrão do GitHub).
+**Histórico e tendências:** o Allure guarda o histórico de cada ambiente separadamente em
+`.allure/historico-<ambiente>.jsonl`. No pipeline, o histórico é preservado entre execuções pelo cache
+do GitHub Actions.
+
+**No pipeline:** o resumo aparece na página da execução (aba Actions); o Allure e o detalhe técnico
+ficam no artefato `relatorio-<ambiente>`, disponível por 90 dias (padrão do GitHub).
 
 ---
 
 ## Atualizando as specs
 
-Sempre que uma API mudar em um ambiente:
+Sempre que a API mudar em um ambiente:
 
-1. Baixe a spec do swagger interno daquele ambiente para o arquivo correspondente, por exemplo:
+1. Baixe a spec do swagger interno daquele ambiente, por exemplo:
    ```bash
    curl -fsSL "https://api-rhnet-hml.sci.com.br/docs?api-docs.json" -o spec/hml/rhnetsocial.json
    ```
-2. Revise: abra em https://editor.swagger.io, confira se não há erros e se as mudanças batem
-   com o combinado. Use `git diff spec/` para ver o que mudou.
-3. Atualize o `INFO.md` do ambiente (primeira linha, tabela e histórico).
-4. Commite spec e INFO juntos, em um PR:
-   ```bash
-   git commit -am "spec(hml/rhnetsocial): atualiza para X.Y.Z (AAAA-MM-DD)"
-   ```
+2. Revise em https://editor.swagger.io e compare com a versão anterior (`git diff spec/`).
+3. Atualize o `INFO.md` do ambiente (primeira linha e histórico).
+4. Commite spec e INFO juntos, em um PR: `spec(hml): atualiza para X.Y.Z (AAAA-MM-DD)`.
 
-Dica: comparar `spec/hml/` com `spec/prd/` mostra exatamente o que vai entrar em produção
-no próximo deploy.
+Comparar `spec/hml/` com `spec/prd/` mostra o que vai entrar em produção no próximo deploy.
 
 ---
 
 ## Escrevendo testes
 
-1. Copie um modelo de `src/test/java/rhnet/modelos/` para `features/<area>/<recurso>.feature`:
+1. Copie um modelo de `src/test/java/rhnet/modelos/` para `features/<área>/<recurso>.feature`:
    - `modelo-recurso.feature`: regras, filtros e validações de um recurso
    - `modelo-fluxo.feature`: ciclo criar -> consultar -> atualizar -> remover, com limpeza
 2. Troque os marcadores (`RECURSO`, `CAMPO_ID` etc.) pelos nomes reais da spec.
 3. Remova o `@ignore` e aplique as tags.
 
-### Tags
-
-| Tag | Uso |
-|---|---|
-| `@smoke` | Essencial e rápido; indica que a API está de pé |
-| `@regressao` | Regras de negócio detalhadas |
-| `@fluxo` | Fluxos completos (criar -> remover) |
-| `@ignore` | Features auxiliares ou modelos; nunca executam diretamente |
-
 ### Padrão de escrita
 
-O relatório é lido por QA e desenvolvimento, então cada cenário deve ser compreensível sem
-abrir o código:
+Os relatórios são lidos por QA e desenvolvimento, então cada cenário deve ser compreensível sem abrir o código:
 
 ```gherkin
 @regressao
@@ -205,15 +173,23 @@ Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
   When method get
   Then status 400
   And match response contains { sucesso: false, status: 400 }
-  * karate.log('Consulta rejeitada como esperado. Mensagem da API: "' + response.erros.sistema_id[0] + '"')
+  * registrar('Consulta rejeitada como esperado. Mensagem da API: "' + response.erros.sistema_id[0] + '"')
   * validarContrato()
 ```
 
 - **Título:** o que é feito e o que se espera, com o status quando relevante.
 - **Descrição** (logo abaixo do título): a regra de negócio verificada, em uma ou duas frases.
-- **`karate.log(...)`:** nos pontos-chave, o que foi confirmado, com os valores reais.
-- **`validarContrato()`:** após cada resposta. Quando o contrato está correto, ele registra
-  "Contrato válido: ... está em conformidade com spec/<ambiente>/rhnetsocial.json".
+- **`registrar(...)`:** nos pontos-chave, o que foi confirmado, com os valores reais.
+- **`validarContrato()`:** após cada resposta.
+
+### Tags
+
+| Tag | Uso |
+|---|---|
+| `@smoke` | Essencial e rápido; indica que a API está de pé |
+| `@regressao` | Regras de negócio detalhadas |
+| `@fluxo` | Fluxos completos (criar -> remover) |
+| `@ignore` | Features auxiliares ou modelos; nunca executam diretamente |
 
 ### Convenções
 
@@ -231,8 +207,7 @@ Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
 ## Pipeline
 
 **Environments** (Settings → Environments): crie `hml` e `prd`, cada um com os secrets
-`SCI_PARCEIRO_TOKEN` e `SCI_CLIENTE_TOKEN` daquele ambiente. No `prd`, você pode exigir
-aprovação manual antes de cada execução.
+`SCI_PARCEIRO_TOKEN` e `SCI_CLIENTE_TOKEN` daquele ambiente.
 
 **Disparo após deploy**: ao final do pipeline dos devs, use `deploy-hml` ou `deploy-prd`:
 
@@ -247,3 +222,5 @@ curl -X POST \
 **Execução manual**: Actions → *API Tests* → *Run workflow*, escolhendo ambiente e tags.
 
 > Se as APIs só forem acessíveis pela rede interna, use um runner self-hosted.
+> O runner também precisa de acesso a nodejs.org e registry.npmjs.org na primeira geração do
+> relatório Allure (depois, o cache é reaproveitado).

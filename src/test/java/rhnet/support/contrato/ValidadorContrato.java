@@ -38,8 +38,13 @@ public final class ValidadorContrato {
     private ValidadorContrato() {
     }
 
-    /** Retorna "" se a resposta está no contrato, ou a mensagem explicando o problema. */
-    public static String validate(String ambiente, String api, String method, String url, int status, byte[] body) {
+    /**
+     * Retorna "" se a resposta está no contrato, ou a mensagem explicando o problema.
+     *
+     * @param status código HTTP (qualquer tipo numérico)
+     * @param body   corpo da resposta: byte[] (responseBytes) ou texto
+     */
+    public static String validate(String ambiente, String api, String method, String url, Object status, Object body) {
         Path arquivo = Path.of("spec", ambiente, api + ".json");
         String nome = "spec/" + ambiente + "/" + api + ".json";
         Spec spec = SPECS.computeIfAbsent(nome, k -> carregar(arquivo, nome));
@@ -48,10 +53,13 @@ public final class ValidadorContrato {
         }
         String path = URI.create(url).getPath();
         try {
-            SimpleResponse.Builder resposta = SimpleResponse.Builder.status(status)
+            int codigo = ((Number) status).intValue();
+            String corpo = body instanceof byte[] bytes ? new String(bytes, StandardCharsets.UTF_8)
+                    : body == null ? "" : body.toString();
+            SimpleResponse.Builder resposta = SimpleResponse.Builder.status(codigo)
                     .withHeader("Content-Type", "application/json");
-            if (body != null && body.length > 0) {
-                resposta.withBody(new String(body, StandardCharsets.UTF_8));
+            if (!corpo.isEmpty()) {
+                resposta.withBody(corpo);
             }
             ValidationReport report = spec.validator().validateResponse(
                     path, Request.Method.valueOf(method.toUpperCase()), resposta.build());
@@ -64,7 +72,7 @@ public final class ValidadorContrato {
             }
             return violacoes.isEmpty()
                     ? ""
-                    : MensagensContrato.respostaForaDoContrato(nome, method, path, status, violacoes);
+                    : MensagensContrato.respostaForaDoContrato(nome, method, path, codigo, violacoes);
         } catch (Exception e) {
             return "Erro inesperado ao validar " + method + " " + path + " contra " + nome + ": " + e.getMessage();
         }

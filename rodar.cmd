@@ -1,7 +1,7 @@
 @echo off
 setlocal
 REM ------------------------------------------------------------
-REM  Roda os testes e abre o relatorio.
+REM  Roda os testes, gera o relatorio Allure e o abre.
 REM
 REM    .\rodar              -> tudo em hml (no PowerShell, use sempre .\rodar)
 REM    .\rodar prd          -> tudo em prd
@@ -39,16 +39,23 @@ if "%TAGS%"=="" (
 )
 set RESULTADO=%ERRORLEVEL%
 
-set PAINEL=target\cucumber-html-reports\overview-features.html
-set DETALHE=target\karate-reports\karate-summary.html
-echo.
-if not exist "%DETALHE%" (
+if not exist "target\allure-results" (
+  echo.
   echo === A EXECUCAO FALHOU ANTES DOS TESTES - veja as mensagens acima ===
   exit /b %RESULTADO%
 )
+
+echo.
+echo === Gerando relatorio Allure ===
+set ALLURE_AMBIENTE=%AMBIENTE%
+call mvnw.cmd -B --no-transfer-progress -q allure:report
+
+set ALLURE=target\allure-report\index.html
+set DETALHE=target\karate-reports\karate-summary.html
+echo.
 if %RESULTADO%==0 (echo === TODOS OS TESTES PASSARAM ===) else (echo === HA TESTES FALHANDO ===)
 echo.
-echo Painel de resultados:  %PAINEL%
-echo Detalhe tecnico:       %DETALHE%
-if exist "%PAINEL%" (start "" "%PAINEL%") else (start "" "%DETALHE%")
+echo Relatorio Allure:   %ALLURE%
+echo Detalhe tecnico:    %DETALHE%
+if exist "%ALLURE%" (start "" "%ALLURE%") else (start "" "%DETALHE%")
 exit /b %RESULTADO%

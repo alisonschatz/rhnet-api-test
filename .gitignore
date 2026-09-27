@@ -1,4 +1,5 @@
 target/
+.allure/
 .env*
 !.env.example
 *.log
