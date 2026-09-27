@@ -68,8 +68,7 @@ public final class ResumoExecucao {
               .append(" | ").append(r.isFailed() ? celula(primeiraLinha(r.getFailureMessage())) : "")
               .append(" |\n");
         }
-        md.append("\nRelatórios completos: artefato **relatorio-").append(ambiente)
-          .append("** desta execução (Allure em `allure-report/index.html`).\n");
+        md.append("\nO relatório completo desta execução é publicado no GitHub Pages (link abaixo).\n");
         return md.toString();
     }
 

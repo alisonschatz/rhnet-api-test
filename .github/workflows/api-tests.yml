@@ -17,6 +17,9 @@ on:
         required: false
         default: ""
 
+env:
+  AMBIENTE: ${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }}
+
 jobs:
   testes:
     name: Testes de API (${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }})
@@ -27,8 +30,8 @@ jobs:
     concurrency:
       group: api-tests-${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }}
       cancel-in-progress: true
-    env:
-      AMBIENTE: ${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }}
+    outputs:
+      relatorio: ${{ steps.publicacao.outputs.relatorio }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,13 +41,25 @@ jobs:
           java-version: "21"
           cache: maven
 
-      # Node.js e Allure (baixados pelo plugin) + histórico de tendências por ambiente
-      - name: Restaurar cache do Allure
+      # Node.js e Allure baixados pelo plugin (o histórico vem da publicação, abaixo)
+      - name: Restaurar ferramentas do Allure
         uses: actions/cache@v4
         with:
-          path: .allure
-          key: allure-${{ env.AMBIENTE }}-${{ github.run_id }}
-          restore-keys: allure-${{ env.AMBIENTE }}-
+          path: |
+            .allure
+            !.allure/historico-*.jsonl
+          key: allure-ferramentas-${{ runner.os }}-${{ hashFiles('pom.xml') }}
+
+      - name: Restaurar histórico de tendências publicado
+        run: |
+          mkdir -p .allure
+          if git fetch --depth 1 origin gh-pages 2> /dev/null \
+             && git show "FETCH_HEAD:.historico/historico-$AMBIENTE.jsonl" > ".allure/historico-$AMBIENTE.jsonl" 2> /dev/null; then
+            echo "Histórico de $AMBIENTE restaurado."
+          else
+            rm -f ".allure/historico-$AMBIENTE.jsonl"
+            echo "Sem histórico publicado para $AMBIENTE: esta será a primeira execução do histórico."
+          fi
 
       - name: Executar testes
         id: testes
@@ -75,18 +90,58 @@ jobs:
             echo "Versão implantada: \`${{ github.event.client_payload.versao }}\`" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: relatorio-${{ env.AMBIENTE }}
-          path: |
-            target/allure-report/
-            target/karate-reports/
-          if-no-files-found: ignore
+      # Arquivos repassados ao job de publicação (artefato temporário, apagado em 1 dia)
+      - name: Preparar publicação
+        id: publicacao
+        if: always() && hashFiles('target/allure-report/index.html') != ''
+        run: |
+          mkdir -p publicacao
+          cp target/allure-report/index.html publicacao/index.html
+          cp ".allure/historico-$AMBIENTE.jsonl" publicacao/ 2> /dev/null || true
+          echo "$(TZ=America/Sao_Paulo date '+%d/%m/%Y %H:%M')|${{ steps.testes.outcome }}" > publicacao/status.txt
+          echo "relatorio=true" >> "$GITHUB_OUTPUT"
 
-      # Mantém o job como falho quando algum teste falhou (o relatório já foi gerado acima)
+      - uses: actions/upload-artifact@v4
+        if: steps.publicacao.outputs.relatorio == 'true'
+        with:
+          name: publicacao-${{ env.AMBIENTE }}
+          path: publicacao/
+          retention-days: 1
+
+      # Mantém o job como falho quando algum teste falhou (o relatório já foi preparado acima)
       - name: Resultado final
         if: steps.testes.outcome == 'failure'
         run: |
-          echo "Há testes falhando. Veja o resumo e o relatório Allure desta execução."
+          echo "Há testes falhando. Veja o resumo e o relatório publicado."
           exit 1
+
+  publicar:
+    name: Publicar relatório (${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }})
+    needs: testes
+    # Publica sempre que houver relatório, inclusive quando há testes falhando
+    if: always() && needs.testes.outputs.relatorio == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Uma publicação por vez (hml e prd compartilham a branch gh-pages)
+    concurrency:
+      group: publicacao-relatorios
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: publicacao-${{ env.AMBIENTE }}
+          path: ${{ runner.temp }}/publicacao
+
+      - name: Publicar no GitHub Pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/scripts/publicar-relatorio.sh "$AMBIENTE" "${{ runner.temp }}/publicacao"
+
+      - name: Link do relatório
+        run: |
+          URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/$AMBIENTE/"
+          echo "Relatório publicado: $URL"
+          echo "### Relatório publicado: [$AMBIENTE]($URL)" >> "$GITHUB_STEP_SUMMARY"

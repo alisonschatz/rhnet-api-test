@@ -37,7 +37,9 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
 ├── rodar.cmd / rodar.sh                # atalho para rodar localmente
 ├── pom.xml                             # dependências do projeto
 ├── mvnw / mvnw.cmd / .mvn/             # Maven Wrapper (não precisa instalar Maven)
-├── .github/workflows/api-tests.yml     # pipeline (hml e prd)
+├── .github/
+│   ├── workflows/api-tests.yml         # pipeline (hml e prd)
+│   └── scripts/publicar-relatorio.sh   # publicação do relatório no GitHub Pages
 └── src/test/
     ├── resources/
     │   ├── contrato-ignorar.txt        # exceções de contrato aceitas (com motivo)
@@ -127,12 +129,26 @@ Pela IDE: rode a classe `RhnetTest` (para prd, adicione `-Dkarate.env=prd` nas V
 Dados sensíveis (token, CPF, salário e outros) são mascarados em todos os relatórios, conforme a
 configuração `logging.mask` do `karate-config.js`.
 
-**Histórico e tendências:** o Allure guarda o histórico de cada ambiente separadamente em
-`.allure/historico-<ambiente>.jsonl`. No pipeline, o histórico é preservado entre execuções pelo cache
-do GitHub Actions.
+**Histórico e tendências:** o Allure guarda um resumo de cada execução anterior (status e duração
+de cada teste) e o usa para os gráficos de tendência e o histórico de cada cenário. As execuções
+anteriores completas **não** são guardadas: o relatório é sempre substituído pelo mais recente.
+Localmente, o histórico fica em `.allure/historico-<ambiente>.jsonl`.
 
-**No pipeline:** o resumo aparece na página da execução (aba Actions); o Allure e o detalhe técnico
-ficam no artefato `relatorio-<ambiente>`, disponível por 90 dias (padrão do GitHub).
+### Relatório publicado
+
+A cada execução do pipeline, o relatório Allure é publicado no GitHub Pages, substituindo o anterior:
+
+```
+https://<org>.github.io/rhnet-api-tests/        página inicial: resultado e data de hml e prd
+https://<org>.github.io/rhnet-api-tests/hml/    último relatório de homologação
+https://<org>.github.io/rhnet-api-tests/prd/    último relatório de produção
+```
+
+- Só o **último relatório** de cada ambiente fica acessível, com as tendências das execuções anteriores.
+- A branch `gh-pages` é recriada a cada publicação com um único commit: nem o histórico do Git
+  guarda versões anteriores dos relatórios.
+- O histórico de tendências fica na pasta `.historico/` da branch, que o GitHub Pages não publica.
+- A publicação é feita por `.github/scripts/publicar-relatorio.sh`.
 
 ---
 
@@ -209,6 +225,17 @@ Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
 **Environments** (Settings → Environments): crie `hml` e `prd`, cada um com os secrets
 `SCI_PARCEIRO_TOKEN` e `SCI_CLIENTE_TOKEN` daquele ambiente.
 
+**GitHub Pages** (uma vez, após a primeira execução do pipeline, que cria a branch `gh-pages`):
+Settings → Pages → *Build and deployment* → Source: **Deploy from a branch** → Branch: **gh-pages** / **(root)**.
+
+> **Visibilidade:** confira em Settings → Pages quem pode acessar o site. Em planos sem controle
+> de acesso ao Pages, o site de um repositório privado fica **público**. Os relatórios mascaram
+> dados sensíveis, mas mostram endpoints, parâmetros e respostas da API. Publique apenas se o
+> acesso estiver restrito à organização (ou se o time aceitar essa exposição).
+
+Se a publicação falhar por falta de permissão, habilite em Settings → Actions → General →
+*Workflow permissions* a opção **Read and write permissions**.
+
 **Disparo após deploy**: ao final do pipeline dos devs, use `deploy-hml` ou `deploy-prd`:
 
 ```bash
@@ -220,6 +247,9 @@ curl -X POST \
 ```
 
 **Execução manual**: Actions → *API Tests* → *Run workflow*, escolhendo ambiente e tags.
+
+**Resultado de cada execução:** o resumo aparece na página da execução (aba Actions), com o link
+do relatório publicado.
 
 > Se as APIs só forem acessíveis pela rede interna, use um runner self-hosted.
 > O runner também precisa de acesso a nodejs.org e registry.npmjs.org na primeira geração do
