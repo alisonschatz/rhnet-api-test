@@ -1,0 +1,6 @@
+# Chaves de validação de contrato que o time decidiu NÃO tratar como erro.
+# Uma chave por linha. Toda exceção deve ter um motivo e, se possível, um ticket.
+#
+# Exemplo: a spec declara "format: date-time", mas a API usa "AAAA-MM-DD HH:MM:SS"
+# (sem o "T" do RFC 3339). Enquanto a spec não for corrigida, descomente:
+# validation.response.body.schema.format

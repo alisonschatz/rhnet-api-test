@@ -1,0 +1,63 @@
+name: API Tests - RH NET Social
+
+on:
+  # Disparado pelo pipeline da aplicação após o deploy (ver README)
+  repository_dispatch:
+    types: [deploy-hml, deploy-prd]
+  # Execução manual
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: "Ambiente"
+        type: choice
+        options: [hml, prd]
+        default: hml
+      tags:
+        description: "Tags do Karate (ex.: @smoke). Vazio = tudo"
+        required: false
+        default: ""
+
+jobs:
+  testes:
+    name: Testes de API (${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }})
+    # Se a API só for acessível pela rede interna, troque por um runner self-hosted
+    runs-on: ubuntu-latest
+    # GitHub Environments "hml" e "prd": cada um com seus próprios secrets
+    environment: ${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }}
+    concurrency:
+      group: api-tests-${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }}
+      cancel-in-progress: true
+    env:
+      AMBIENTE: ${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Executar testes
+        env:
+          SCI_PARCEIRO_TOKEN: ${{ secrets.SCI_PARCEIRO_TOKEN }}
+          SCI_CLIENTE_TOKEN: ${{ secrets.SCI_CLIENTE_TOKEN }}
+          TAGS: ${{ github.event.inputs.tags }}
+        run: bash mvnw -B --no-transfer-progress test -Dkarate.env=$AMBIENTE ${TAGS:+-Dtags=$TAGS}
+
+      - name: Resumo
+        if: always()
+        run: |
+          {
+            echo "## Testes de API - RH NET Social ($AMBIENTE)"
+            echo "- Disparo: \`${{ github.event_name }}\`"
+            echo "- Versão implantada: \`${{ github.event.client_payload.versao || 'n/d' }}\`"
+            echo "- $(head -n 1 spec/$AMBIENTE/INFO.md 2>/dev/null || echo 'Specs: n/d')"
+            echo "- Relatório HTML: artefato **relatorio-karate-$AMBIENTE**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: relatorio-karate-${{ env.AMBIENTE }}
+          path: target/karate-reports/
