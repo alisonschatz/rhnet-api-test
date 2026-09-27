@@ -27,8 +27,9 @@ env:
 jobs:
   testes:
     name: Testes de API (${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }})
-    # Se a API só for acessível pela rede interna, troque por um runner self-hosted
-    runs-on: ubuntu-latest
+    # Versão fixa do Ubuntu: atualizações do runner não mudam o ambiente sem aviso.
+    # Se a API só for acessível pela rede interna, troque por um runner self-hosted.
+    runs-on: ubuntu-24.04
     # GitHub Environments "hml" e "prd": cada um com seus próprios secrets
     environment: ${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }}
     concurrency:
@@ -37,9 +38,9 @@ jobs:
     outputs:
       relatorio: ${{ steps.publicacao.outputs.relatorio }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
@@ -47,7 +48,7 @@ jobs:
 
       # Node.js e Allure baixados pelo plugin (o histórico vem da publicação, abaixo)
       - name: Restaurar ferramentas do Allure
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             .allure
@@ -57,7 +58,8 @@ jobs:
       - name: Restaurar histórico de tendências publicado
         run: |
           mkdir -p .allure
-          if git fetch --depth 1 origin gh-pages 2> /dev/null \
+          # Branch "relatorios" (ou "gh-pages", nome usado por versões anteriores do projeto)
+          if { git fetch --depth 1 origin relatorios 2> /dev/null || git fetch --depth 1 origin gh-pages 2> /dev/null; } \
              && git show "FETCH_HEAD:.historico/historico-$AMBIENTE.jsonl" > ".allure/historico-$AMBIENTE.jsonl" 2> /dev/null; then
             echo "Histórico de $AMBIENTE restaurado."
           else
@@ -120,7 +122,7 @@ jobs:
              target/resumo-execucao.json > publicacao/status.json
           echo "relatorio=true" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: steps.publicacao.outputs.relatorio == 'true'
         with:
           name: publicacao-${{ env.AMBIENTE }}
@@ -139,28 +141,42 @@ jobs:
     needs: testes
     # Publica sempre que houver relatório, inclusive quando há testes falhando
     if: always() && needs.testes.outputs.relatorio == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
-      contents: write
-    # Uma publicação por vez (hml e prd compartilham a branch gh-pages)
+      contents: write   # salvar o site na branch "relatorios"
+      pages: write      # publicar no GitHub Pages
+      id-token: write   # exigido pela publicação no GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    # Uma publicação por vez (hml e prd compartilham o mesmo site)
     concurrency:
       group: publicacao-relatorios
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: publicacao-${{ env.AMBIENTE }}
           path: ${{ runner.temp }}/publicacao
 
-      - name: Publicar no GitHub Pages
+      - name: Montar o site
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash .github/scripts/publicar-relatorio.sh "$AMBIENTE" "${{ runner.temp }}/publicacao"
+        run: bash .github/scripts/publicar-relatorio.sh "$AMBIENTE" "${{ runner.temp }}/publicacao" "${{ runner.temp }}/site"
+
+      # Pastas ocultas (como .historico) ficam fora do site publicado
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ runner.temp }}/site
+
+      - name: Publicar no GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v5
 
       - name: Link do relatório
         run: |
-          URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/$AMBIENTE/"
+          URL="${{ steps.deploy.outputs.page_url }}$AMBIENTE/"
           echo "Relatório publicado: $URL"
           echo "### Relatório publicado: [$AMBIENTE]($URL)" >> "$GITHUB_STEP_SUMMARY"

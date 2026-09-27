@@ -148,9 +148,10 @@ https://<org>.github.io/rhnet-api-tests/prd/    último relatório de produção
 ```
 
 - Só o **último relatório** de cada ambiente fica acessível, com as tendências das execuções anteriores.
-- A branch `gh-pages` é recriada a cada publicação com um único commit: nem o histórico do Git
-  guarda versões anteriores dos relatórios.
-- O histórico de tendências fica na pasta `.historico/` da branch, que o GitHub Pages não publica.
+- O pipeline publica o site diretamente no GitHub Pages. A branch `relatorios` guarda o último
+  relatório de cada ambiente e o histórico entre execuções; ela é recriada a cada publicação com um
+  único commit, então nem o histórico do Git guarda versões anteriores dos relatórios.
+- O histórico de tendências fica na pasta `.historico/` da branch, que não é incluída no site.
 - A publicação é feita por `.github/scripts/publicar-relatorio.sh`.
 
 **Página inicial:** um cartão por ambiente com o resultado, os números de cenários (total, que
@@ -237,6 +238,10 @@ Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
 O pipeline roda os testes no GitHub Actions e publica o relatório no GitHub Pages. A configuração
 é feita uma única vez, seguindo os passos abaixo na ordem.
 
+> **Vindo de uma versão anterior deste projeto** (site publicado pela branch `gh-pages`): troque a
+> *Source* do Pages para **GitHub Actions** (passo 4). A primeira execução migra os relatórios e o
+> histórico para a branch `relatorios`; depois disso, a branch `gh-pages` pode ser apagada.
+
 ### Passo a passo da configuração
 
 **1. Subir o projeto para o GitHub**
@@ -263,21 +268,17 @@ Em **Settings → Actions → General → Workflow permissions**, selecione
 **Read and write permissions** e salve. Se a opção estiver bloqueada, ela é definida pela
 organização: peça a um administrador para liberar.
 
-**4. Rodar o pipeline pela primeira vez**
+**4. Ativar o GitHub Pages**
+
+Em **Settings → Pages**, em **Build and deployment → Source**, selecione **GitHub Actions**.
+Não é preciso escolher branch: o próprio pipeline publica o site.
+
+**5. Rodar o pipeline pela primeira vez**
 
 Em **Actions**, selecione **API Tests - RH NET Social**, clique em **Run workflow**, escolha o
 ambiente e confirme. Ao final, a execução terá dois jobs concluídos: **Testes de API** e
-**Publicar relatório**. Essa primeira execução cria a branch `gh-pages`, onde o site fica.
-
-**5. Ativar o GitHub Pages**
-
-Em **Settings → Pages**, em **Build and deployment**:
-
-1. **Source:** selecione **Deploy from a branch**.
-2. **Branch:** selecione **gh-pages** e a pasta **/ (root)**, e clique em **Save**.
-
-Em um ou dois minutos, o endereço do site aparece no topo da mesma página:
-`https://<org>.github.io/rhnet-api-tests/`.
+**Publicar relatório**, com o link do site no resumo. O endereço também aparece em
+**Settings → Pages**: `https://<org>.github.io/rhnet-api-tests/`.
 
 **6. Conferir quem pode acessar o site**
 
@@ -326,7 +327,9 @@ curl -X POST \
 |---|---|
 | O workflow não aparece na aba Actions | O arquivo não está na branch principal |
 | Falha em "Executar testes" com erro de credenciais | Secrets ausentes ou com nome diferente no environment |
-| Falha em "Publicar no GitHub Pages" com erro 403 | Passo 3 não aplicado (permissão de escrita) |
-| Site não abre (404) | Passo 5 não aplicado, ou publicação ainda em andamento (aguarde alguns minutos) |
+| Falha em "Montar o site" com erro 403 | Passo 3 não aplicado (permissão de escrita) |
+| Falha em "Publicar no GitHub Pages" (Pages não encontrado) | Passo 4 não aplicado (Source: GitHub Actions) |
+| Falha em "Publicar no GitHub Pages" por regra do environment | Em Settings → Environments → github-pages, permita a branch principal |
+| Site não abre (404) | Publicação ainda em andamento: aguarde alguns minutos |
 | Timeout ou conexão recusada nos testes | A API não é acessível pela internet: use um runner self-hosted na rede interna |
 | Relatório Allure não gerado | O runner não acessa nodejs.org e registry.npmjs.org (necessários na primeira geração) |
