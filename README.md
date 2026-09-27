@@ -315,6 +315,10 @@ curl -X POST \
   - **Quais testes executar:** *Todos*, *Smoke* (essenciais e rápidos) ou *Regressão* (regras de negócio).
 - **Disparo automático (após deploy):** roda sempre **todos** os testes do ambiente informado.
 - **Resultado:** a página da execução (aba Actions) mostra o resumo, com o link do relatório publicado.
+- **Status da execução:** fica **vermelho** quando algum teste falha, para sinalizar o problema e
+  gerar a notificação do GitHub. O relatório é publicado normalmente, e os avisos da execução mostram,
+  por exemplo: *"2 de 5 cenários falharam em PRD. Relatório: https://..."*. O deploy dos devs não é
+  afetado: o disparo não espera o resultado dos testes.
 - **Relatório:** sempre o mais recente de cada ambiente, no endereço do site.
 
 ### Problemas comuns

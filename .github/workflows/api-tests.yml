@@ -128,11 +128,21 @@ jobs:
           path: publicacao/
           retention-days: 1
 
-      # Mantém o job como falho quando algum teste falhou (o relatório já foi preparado acima)
+      # Mantém o job como falho quando algum teste falhou (o relatório já foi preparado acima),
+      # com uma mensagem objetiva no log e nos avisos (Annotations) da execução
       - name: Resultado final
         if: steps.testes.outcome == 'failure'
         run: |
-          echo "Há testes falhando. Veja o resumo e o relatório publicado."
+          AMB="${AMBIENTE^^}"
+          DONO="${GITHUB_REPOSITORY_OWNER,,}"
+          URL="https://$DONO.github.io/${GITHUB_REPOSITORY#*/}/$AMBIENTE/"
+          if [ -f target/resumo-execucao.json ]; then
+            FALHARAM=$(jq -r '.falharam' target/resumo-execucao.json)
+            TOTAL=$(jq -r '.total' target/resumo-execucao.json)
+            echo "::error title=Testes com falha em $AMB::$FALHARAM de $TOTAL cenários falharam em $AMB. Relatório: $URL"
+          else
+            echo "::error title=Testes não executados em $AMB::Não foi possível executar os testes em $AMB. Veja o log do passo 'Executar testes'."
+          fi
           exit 1
 
   publicar:
