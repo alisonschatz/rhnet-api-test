@@ -10,7 +10,7 @@
  *   ambiente               hml | prd
  *   token                  JWT do usuário de teste (login feito uma vez por execução)
  *   sessao                 dados do JWT: sessao.sistemaId, sessao.usuario.dados.empresasVinculadas...
- *   validarContrato(api)   valida a última resposta contra spec/<ambiente>/<api>.json
+ *   validarContrato()      valida a última resposta contra spec/<ambiente>/rhnetsocial.json
  */
 function fn() {
   var ambiente = karate.env || 'hml';
@@ -71,12 +71,11 @@ function fn() {
   });
 
   // ------------------------------------------------------------- contrato
-  //   * validarContrato()        -> spec/<ambiente>/rhnetsocial.json
-  //   * validarContrato('auth')  -> spec/<ambiente>/auth.json
+  // Valida a última resposta contra spec/<ambiente>/rhnetsocial.json.  Uso:  * validarContrato()
   var Validador = Java.type('rhnet.support.contrato.ValidadorContrato');
-  config.validarContrato = function (api) {
+  config.validarContrato = function () {
     var req = karate.prevRequest;
-    var erros = Validador.validate(ambiente, api || 'rhnetsocial',
+    var erros = Validador.validate(ambiente, 'rhnetsocial',
       req.method, req.url, karate.get('responseStatus'), karate.get('responseBytes'));
     if (erros) {
       karate.fail('\n' + erros);

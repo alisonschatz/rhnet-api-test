@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *   ./mvnw test                                  -> tudo, em HML
  *   ./mvnw test -Dkarate.env=prd                 -> tudo, em PRD
  *   ./mvnw test -Dkarate.env=prd -Dtags=@smoke   -> só smoke, em PRD
- *   ./mvnw test -Dtags=@smoke,@auth              -> smoke OU auth
+ *   ./mvnw test -Dtags=@smoke,@regressao         -> smoke OU regressao
  */
 class RhnetTest {
 

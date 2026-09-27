@@ -11932,6 +11932,7 @@
                                     ]
                                 },
                                 "additionalProperties": {
+                                    "schema": "AdmissaoCompletaLiberacaoDocs",
                                     "type": "array",
                                     "items": {
                                         "type": "string"
@@ -22490,6 +22491,7 @@
                             ]
                         },
                         "additionalProperties": {
+                            "schema": "SchemmaDocs",
                             "type": "array",
                             "items": {
                                 "type": "string"
@@ -24910,27 +24912,19 @@
             }
         },
         "parameters": {
-"page": {
-    "name": "page",
-    "in": "query",
-    "description": "Número da página",
-    "required": false,
-    "schema": {
-        "type": "integer",
-        "minimum": 1,
-        "example": 1
-    }
-},
+            "page": {
+                "name": "page",
+                "in": "query",
+                "description": "Página atual",
+                "required": false,
+                "example": "1"
+            },
             "per_page": {
                 "name": "per_page",
                 "in": "query",
                 "description": "Total de registros por página",
                 "required": false,
-                    "schema": {
-        "type": "integer",
-        "minimum": 1,
-        "example": 1
-    }
+                "example": "15"
             },
             "empresa_id": {
                 "name": "empresa_id",

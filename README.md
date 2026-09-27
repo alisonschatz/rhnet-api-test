@@ -10,30 +10,30 @@ aplicação. Rodam em **homologação (hml)** e em **produção (prd)**, a cada 
 ## Como funciona
 
 1. O dev faz deploy e o pipeline dele dispara este repositório, informando o ambiente.
-2. O Karate faz login **uma vez** na API de auth daquele ambiente e roda as features em paralelo.
+2. O Karate gera o token **uma vez** na API de auth daquele ambiente e roda as features em paralelo.
 3. Cada resposta testada é conferida contra a **spec oficial daquele ambiente**
    (`spec/<ambiente>/`), baixada e validada pelo QA.
 4. O relatório HTML fica disponível no pipeline.
 
-### APIs e specs
+### Escopo e specs
 
-O alvo dos testes é a **RH NET Social**. Ela depende da **API de autenticação**, que também
-tem seu contrato validado. Cada API tem uma spec por ambiente:
+O alvo dos testes são os endpoints da **RH NET Social**. A **API de autenticação** é usada
+apenas para gerar o token de acesso: o login é feito uma vez por execução, como etapa de
+preparação. Se o token não for gerado, a execução é interrompida com a causa.
+
+Cada ambiente tem a sua spec da RH NET Social:
 
 ```
 spec/
 ├── hml/
 │   ├── rhnetsocial.json    # RH NET Social em homologação
-│   ├── auth.json           # Auth em homologação
-│   └── INFO.md             # data, versão, responsável e histórico das duas
+│   └── INFO.md             # data, versão, responsável e histórico
 └── prd/
     ├── rhnetsocial.json
-    ├── auth.json
     └── INFO.md
 ```
 
-Nas features, `validarContrato()` usa a spec da RH NET Social e `validarContrato('auth')` usa a
-da API de auth. O ambiente é escolhido automaticamente.
+Nas features, `validarContrato()` valida a resposta contra a spec do ambiente em execução.
 
 ### Hml e prd sem distinção
 
@@ -63,13 +63,12 @@ todo dado criado é removido ao final do cenário (ver convenções).
             ├── RhnetTest.java          # ponto de execução (paralelo, filtro por tags)
             │
             ├── features/               # OS TESTES, uma pasta por área da API
-            │   ├── auth/               #   login
-            │   └── consultas/          #   bancos, cadastros básicos
+            │   └── consultas/          #   bancos
             │
             ├── modelos/                # modelos para novas features (não executam)
             │
             └── support/                # infraestrutura, organizada por responsabilidade
-                ├── auth/               #   login da execução e utilitários de autenticação
+                ├── auth/               #   geração do token da execução
                 │   ├── obter-token.feature
                 │   └── Autenticacao.java       Basic Auth e leitura do JWT
                 ├── contrato/           #   validação de respostas contra a spec
@@ -97,7 +96,7 @@ Definidas em `karate-config.js`, sem precisar declarar nada:
 | `ambiente` | `hml` ou `prd` |
 | `token` | JWT do usuário de teste |
 | `sessao` | Dados do JWT, ex.: `sessao.sistemaId`, `sessao.usuario.dados.empresasVinculadas` |
-| `validarContrato()` | Valida a última resposta contra a spec (`'auth'` para a API de auth) |
+| `validarContrato()` | Valida a última resposta contra a spec da RH NET Social do ambiente |
 
 ---
 
@@ -176,7 +175,7 @@ no próximo deploy.
 
 1. **Uma feature por recurso**, nomeada pelo recurso da API.
 2. **O cenário descreve o comportamento esperado** ("Sem X retorna 400"), não a implementação.
-3. **Toda resposta testada chama `validarContrato()`** (ou `validarContrato('auth')`) logo após o `status`.
+3. **Toda resposta testada chama `validarContrato()`** logo após o `status`.
 4. **Nada de ID fixo.** Busque um registro existente e use o ID dele; os dados de hml e prd são diferentes.
 5. **Quem cria, remove.** O ID vai para `criados` antes de qualquer assert, e o `afterScenario` limpa.
 6. **Só contas de teste e dados sintéticos, com o prefixo `QA AUTO`.** Nunca use dados reais (LGPD).

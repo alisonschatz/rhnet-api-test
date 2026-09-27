@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Valida respostas HTTP contra as specs oficiais do projeto:
  *
- *   spec/<ambiente>/<api>.json     ex.: spec/hml/rhnetsocial.json, spec/prd/auth.json
+ *   spec/<ambiente>/<api>.json     ex.: spec/hml/rhnetsocial.json, spec/prd/rhnetsocial.json
  *
  * As specs são baixadas, validadas e versionadas manualmente pelo QA.
  * Exceções aceitas pelo time ficam em src/test/resources/contrato-ignorar.txt.
