@@ -58,8 +58,7 @@ jobs:
       - name: Restaurar histórico de tendências publicado
         run: |
           mkdir -p .allure
-          # Branch "relatorios" (ou "gh-pages", nome usado por versões anteriores do projeto)
-          if { git fetch --depth 1 origin relatorios 2> /dev/null || git fetch --depth 1 origin gh-pages 2> /dev/null; } \
+          if git fetch --depth 1 origin relatorios 2> /dev/null \
              && git show "FETCH_HEAD:.historico/historico-$AMBIENTE.jsonl" > ".allure/historico-$AMBIENTE.jsonl" 2> /dev/null; then
             echo "Histórico de $AMBIENTE restaurado."
           else

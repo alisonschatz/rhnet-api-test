@@ -25,15 +25,8 @@ def duracao(ms):
 
 
 def ler_status(historico: Path, amb: str):
-    arquivo_json = historico / f"status-{amb}.json"
-    if arquivo_json.exists():
-        return json.loads(arquivo_json.read_text(encoding="utf-8"))
-    # Formato antigo ("data|resultado"), de publicações anteriores a esta versão
-    arquivo_txt = historico / f"status-{amb}.txt"
-    if arquivo_txt.exists():
-        data, _, resultado = arquivo_txt.read_text(encoding="utf-8").strip().partition("|")
-        return {"executadoEm": data, "resultado": "passou" if resultado == "success" else "falhou"}
-    return None
+    arquivo = historico / f"status-{amb}.json"
+    return json.loads(arquivo.read_text(encoding="utf-8")) if arquivo.exists() else None
 
 
 def cartao_vazio(amb, titulo):

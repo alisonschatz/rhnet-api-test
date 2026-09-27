@@ -25,16 +25,14 @@ SITE="$(cd "$3" && pwd)"
 RAIZ="$(cd "$(dirname "$0")/../.." && pwd)"
 BRANCH="relatorios"
 
-# Conteúdo atual (preserva o outro ambiente e os históricos).
-# "gh-pages" é o nome usado por versões anteriores deste projeto: migrado automaticamente.
-if git fetch --depth 1 origin "$BRANCH" 2> /dev/null || git fetch --depth 1 origin gh-pages 2> /dev/null; then
+# Conteúdo atual (preserva o outro ambiente e os históricos)
+if git fetch --depth 1 origin "$BRANCH" 2> /dev/null; then
   git archive FETCH_HEAD | tar -x -C "$SITE"
 fi
 
 mkdir -p "$SITE/$AMBIENTE" "$SITE/.historico"
 cp "$EXECUCAO/index.html" "$SITE/$AMBIENTE/index.html"
 cp "$EXECUCAO/status.json" "$SITE/.historico/status-$AMBIENTE.json"
-rm -f "$SITE/.historico/status-$AMBIENTE.txt"
 if [[ -f "$EXECUCAO/historico-$AMBIENTE.jsonl" ]]; then
   cp "$EXECUCAO/historico-$AMBIENTE.jsonl" "$SITE/.historico/historico-$AMBIENTE.jsonl"
 fi

@@ -238,10 +238,6 @@ Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
 O pipeline roda os testes no GitHub Actions e publica o relatório no GitHub Pages. A configuração
 é feita uma única vez, seguindo os passos abaixo na ordem.
 
-> **Vindo de uma versão anterior deste projeto** (site publicado pela branch `gh-pages`): troque a
-> *Source* do Pages para **GitHub Actions** (passo 4). A primeira execução migra os relatórios e o
-> histórico para a branch `relatorios`; depois disso, a branch `gh-pages` pode ser apagada.
-
 ### Passo a passo da configuração
 
 **1. Subir o projeto para o GitHub**
