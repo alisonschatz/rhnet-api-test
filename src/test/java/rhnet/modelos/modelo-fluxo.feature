@@ -1,6 +1,7 @@
 @ignore
 Feature: MODELO - Ciclo de vida de RECURSO
   Criar -> consultar -> atualizar -> remover, com limpeza garantida.
+  Exemplo completo e real (com utilitários de criação e limpeza): features/dependentes/.
   Copie para features/<área>/, troque os marcadores, remova o @ignore e use a tag @fluxo.
   Roda em hml e prd, sempre com as contas de teste do ambiente.
 
@@ -23,6 +24,8 @@ Feature: MODELO - Ciclo de vida de RECURSO
   Scenario: RECURSO pode ser criado, consultado, atualizado e removido
     Verifica o ciclo completo de um registro criado com dados sintéticos (prefixo QA AUTO).
     O registro é removido ao final, inclusive em caso de falha.
+
+    * def s = usarSessao('parceiro-52')
 
     # Criação
     * def payload = { nome: '#(Dados.nome())', documento: '#(Dados.cpf())' }

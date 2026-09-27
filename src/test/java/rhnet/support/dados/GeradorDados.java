@@ -42,6 +42,29 @@ public final class GeradorDados {
         return sb.toString();
     }
 
+    /** CPF válido no formato 000.000.000-00. */
+    public static String cpfFormatado() {
+        String c = cpf();
+        return c.substring(0, 3) + "." + c.substring(3, 6) + "." + c.substring(6, 9) + "-" + c.substring(9);
+    }
+
+    /**
+     * Código de dependente no sistema de folha (v_dependente_id), usado nas requisições do
+     * sistema de folha. Faixa alta (900000000+) para não colidir com códigos reais do desktop.
+     */
+    public static long codigoDesktop() {
+        return 900_000_000L + ThreadLocalRandom.current().nextLong(99_999_999L);
+    }
+
+    /** Texto com exatamente o tamanho informado, para testes de limite de campo. */
+    public static String texto(int tamanho) {
+        StringBuilder sb = new StringBuilder(PREFIXO + " ");
+        while (sb.length() < tamanho) {
+            sb.append('X');
+        }
+        return sb.substring(0, tamanho);
+    }
+
     public static boolean cpfValido(String cpf) {
         if (cpf == null || !cpf.matches("\\d{11}")) {
             return false;

@@ -29,6 +29,7 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
 
 ```
 ├── ambientes.json                      # URLs de cada ambiente (hml, prd)
+├── dados-teste.json                    # massa de teste por ambiente e cliente (colaborador, empresa)
 ├── .env.example                        # modelo do .env.hml / .env.prd (credenciais)
 ├── spec/
 │   ├── hml/  rhnetsocial.json, INFO.md # spec oficial e histórico de cada ambiente
@@ -55,15 +56,18 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
             ├── RhnetTest.java          # ponto de execução (paralelo, tags, Allure)
             │
             ├── features/               # OS TESTES, uma pasta por área da API
-            │   └── consultas/
-            │       └── bancos.feature
+            │   ├── dependentes/        #   consulta, cadastro, atualização e exclusão
+            │   └── liberacoes/         #   liberação de dependentes
             │
             ├── modelos/                # modelos para novas features (não executam)
             │
             └── support/                # infraestrutura, organizada por responsabilidade
-                ├── auth/               #   geração do token da execução
-                │   ├── obter-token.feature
+                ├── auth/               #   autenticação das sessões da execução
+                │   ├── obter-tokens.feature    login de todas as sessões (uma vez por execução)
+                │   ├── login.feature           login de uma sessão
                 │   └── Autenticacao.java       Basic Auth e leitura do JWT
+                ├── dependentes/        #   pré-condições e limpeza dos testes de dependentes
+                │   └── criar, consultar, liberar, remover (.feature)
                 ├── contrato/           #   validação de respostas contra a spec
                 │   ├── ValidadorContrato.java  carrega a spec e valida
                 │   ├── MensagensContrato.java  monta as mensagens do relatório
@@ -87,10 +91,61 @@ Definido em `karate-config.js`, sem precisar declarar nada:
 |---|---|
 | `baseUrl`, `authUrl` | URLs da RH NET Social e da API de auth do ambiente |
 | `ambiente` | `hml` ou `prd` |
-| `token` | JWT do usuário de teste |
-| `sessao` | Dados do JWT, ex.: `sessao.sistemaId`, `sessao.usuario.dados.empresasVinculadas` |
+| `usarSessao(nome)` | Autentica as próximas requisições com a sessão e a retorna (ver [Sessões](#sessões-e-permissões)) |
+| `sessoes` | Todas as sessões: `{ nome, tipo, cliente, empresaId, funcionarioId }` |
+| `outraEmpresa(sessao)` | Empresa de outro cliente, para testes de acesso indevido |
+| `criarDependente`, `consultarDependente`, `prepararSituacao`... | Utilitários de dependentes (lista completa no topo do `karate-config.js`) |
 | `validarContrato()` | Valida a última resposta contra a spec da RH NET Social do ambiente |
 | `registrar(texto)` | Registra uma verificação em português nos relatórios (Allure e Karate) |
+
+---
+
+## Sessões e permissões
+
+A API se comporta de forma diferente conforme **quem** faz a chamada. Os testes usam quatro sessões,
+autenticadas uma única vez por execução:
+
+| Sessão | Usuário (Basic Auth) | Senha | Papel |
+|---|---|---|---|
+| `parceiro-52` | `SCI_PARCEIRO_TOKEN` | `SCI_CLIENTE_52_TOKEN` | Integração externa, cliente 52 |
+| `parceiro-19` | `SCI_PARCEIRO_TOKEN` | `SCI_CLIENTE_19_TOKEN` | Integração externa, cliente 19 |
+| `sistema-52` | `SCI_SISTEMA_52_TOKEN` | `SCI_CLIENTE_52_TOKEN` | Sistema de folha (desktop), cliente 52 |
+| `sistema-19` | `SCI_SISTEMA_19_TOKEN` | `SCI_CLIENTE_19_TOKEN` | Sistema de folha (desktop), cliente 19 |
+
+Cada cenário escolhe explicitamente a sessão com `usarSessao('parceiro-52')`: não existe sessão
+padrão. Quando uma regra vale para mais de um tipo de token ou cliente, o cenário é um
+*Scenario Outline* com uma linha por sessão, e o relatório mostra o resultado de cada uma.
+
+Os testes de **acesso indevido** usam os dois clientes: uma sessão do cliente 52 tenta acessar a
+empresa ou os dependentes do cliente 19, e vice-versa.
+
+### Regras de dependentes cobertas
+
+| Ação | Integração externa (parceiro) | Sistema de folha |
+|---|---|---|
+| Cadastrar | Sem `v_dependente_id` (proibido) | Com `v_dependente_id` (obrigatório) |
+| Ver `v_dependente_id` | Não trafega | Sim |
+| Editar | Devolve a situação para `nao_liberado` | Mantém a situação |
+| Editar em `aguardando_integracao` | Recusado | Permitido |
+| Excluir | Só `nao_liberado` ou `recusado`, sem `v_dependente_id` | Qualquer situação |
+| Definir `aguardando_integracao`, `integrado`, `recusado` | Recusado | Permitido |
+| Tirar de `aguardando_integracao` | Recusado | Permitido |
+| Consultar com `situacao=liberado` | Sem efeito | Passa os registros para `aguardando_integracao` |
+
+**Limpeza:** todo dependente criado por um teste é excluído ao final do cenário, mesmo em caso de
+falha, pela sessão de **sistema** do cliente, a única que exclui em qualquer situação.
+
+### Massa de teste
+
+O `dados-teste.json` define, por ambiente e cliente:
+
+| Campo | Conteúdo |
+|---|---|
+| `funcionarioContribuinteId` | Colaborador de teste **ativo, sem desligamento e já liberado** (exigência para cadastrar e liberar dependentes) |
+| `empresaId` | Opcional. Quando `null`, usa a primeira empresa vinculada ao usuário no token |
+
+Sem o colaborador preenchido, os testes que criam dependentes param com uma mensagem indicando
+o que falta.
 
 ---
 
@@ -103,9 +158,11 @@ Pré-requisito (uma vez só): **Java 21 ou superior** e acesso à rede das APIs 
 - O **Allure não precisa ser instalado**: o plugin baixa o Allure e um Node.js próprio para a pasta
   `.allure` na primeira geração do relatório.
 
-**1. Credenciais:** copie o `.env.example` para `.env.hml` (e `.env.prd`, se for usar) e preencha os tokens.
+**1. Credenciais:** copie o `.env.example` para `.env.hml` (e `.env.prd`, se for usar) e preencha os
+cinco tokens.
 
-**2. URLs:** confira o `ambientes.json`.
+**2. URLs e massa de teste:** confira o `ambientes.json` e preencha o `dados-teste.json` (ver
+[Massa de teste](#massa-de-teste)).
 
 **3. Rode:**
 
@@ -251,9 +308,10 @@ O workflow só é reconhecido pelo GitHub quando está na branch principal.
 Em **Settings → Environments**:
 
 1. Clique em **New environment**, digite `hml` e confirme.
-2. Em **Environment secrets**, clique em **Add environment secret** e cadastre:
-   - `SCI_PARCEIRO_TOKEN`: token de parceiro de hml
-   - `SCI_CLIENTE_TOKEN`: token de cliente de hml
+2. Em **Environment secrets**, clique em **Add environment secret** e cadastre os tokens de hml:
+   - `SCI_PARCEIRO_TOKEN`
+   - `SCI_SISTEMA_52_TOKEN` e `SCI_SISTEMA_19_TOKEN`
+   - `SCI_CLIENTE_52_TOKEN` e `SCI_CLIENTE_19_TOKEN`
 3. Repita para um environment chamado `prd`, com as credenciais de produção.
 
 Os nomes dos environments e dos secrets precisam ser exatamente esses. Opcionalmente, no

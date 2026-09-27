@@ -71,7 +71,10 @@ jobs:
         continue-on-error: true
         env:
           SCI_PARCEIRO_TOKEN: ${{ secrets.SCI_PARCEIRO_TOKEN }}
-          SCI_CLIENTE_TOKEN: ${{ secrets.SCI_CLIENTE_TOKEN }}
+          SCI_SISTEMA_52_TOKEN: ${{ secrets.SCI_SISTEMA_52_TOKEN }}
+          SCI_SISTEMA_19_TOKEN: ${{ secrets.SCI_SISTEMA_19_TOKEN }}
+          SCI_CLIENTE_52_TOKEN: ${{ secrets.SCI_CLIENTE_52_TOKEN }}
+          SCI_CLIENTE_19_TOKEN: ${{ secrets.SCI_CLIENTE_19_TOKEN }}
           SELECAO: ${{ github.event.inputs.testes }}
         run: |
           # Disparo automático (deploy): sem seleção, roda todos os testes

@@ -4,6 +4,7 @@ Feature: MODELO - Remoção de RECURSO (limpeza)
   já não existir, apenas registra no relatório.
 
   Scenario:
+    * def escopoSuporte = true
     Given url baseUrl
     And path '/api/v1/RECURSO', id
     When method delete
