@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RH NET Social · Testes de API</title>
+<style>
+  /* Mesmo sistema de design do Allure Report 3: fonte, cores (claro/escuro), raios e sombras */
+  @font-face {
+    font-family: "PTRootUIWebVF";
+    src: url("assets/pt-root-ui_vf.woff2") format("woff2");
+    font-weight: 300 700;
+    font-display: swap;
+  }
+  :root {
+    --font-family: "PTRootUIWebVF", ui-sans-serif, system-ui, sans-serif;
+    --bg-canvas: #f1f5f7; --bg-primary: #ffffff; --control-bg: #1a4c751a; --control-bg-hover: #092f5d21;
+    --text-primary: #010a18d4; --text-secondary: #011228ad; --border-default: #0b305629; --link: #2f5fc5;
+    --passed-bg: #3bc95d; --passed-subtle: #56d66f29; --passed-text: #15803d;
+    --failed-bg: #f43f3b; --failed-subtle: #ff646414; --failed-text: #dc2626;
+    --skipped-subtle: #a5b7d129; --skipped-text: #64748b;
+    --shadow-small: 0 2px 10px 0 rgba(48, 57, 64, 0.08);
+    --radius-1: 8px; --radius-1-5: 12px; --radius-pill: 999px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-canvas: #2c343f; --bg-primary: #1b2129; --control-bg: #aecaf42b; --control-bg-hover: #bdd4ff36;
+      --text-primary: #f6fafef5; --text-secondary: #ecf4fdd1; --border-default: #bdd4ff36; --link: #b2ccff;
+      --passed-bg: #49cb68; --passed-subtle: #19ab4a33; --passed-text: #8ef2a0;
+      --failed-bg: #ff574f; --failed-subtle: #f43f3b33; --failed-text: #ffaca5;
+      --skipped-subtle: #afc5f31f; --skipped-text: #c3cbd4;
+      --shadow-small: 0 2px 10px 0 rgba(0, 0, 0, 0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg-canvas); color: var(--text-primary);
+    font-family: var(--font-family); font-size: 14px; line-height: 20px; font-weight: 425;
+    -webkit-font-smoothing: antialiased;
+  }
+  .topo { background: var(--bg-primary); border-bottom: 1px solid var(--border-default); }
+  .conteudo { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  .topo .conteudo { padding-top: 20px; padding-bottom: 20px; }
+  h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 625; }
+  .subtitulo { margin: 4px 0 0; color: var(--text-secondary); }
+  main.conteudo { padding-top: 24px; padding-bottom: 32px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+
+  .cartao {
+    background: var(--bg-primary); border: 1px solid var(--border-default); border-radius: var(--radius-1-5);
+    box-shadow: var(--shadow-small); padding: 20px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .cartao-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .cartao h2 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 625; }
+  .cartao .ambiente { color: var(--text-secondary); font-size: 12px; line-height: 16px; }
+
+  .status {
+    display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: var(--radius-pill);
+    font-size: 12px; line-height: 20px; font-weight: 625; white-space: nowrap;
+  }
+  .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .status.passou { background: var(--passed-subtle); color: var(--passed-text); }
+  .status.falhou { background: var(--failed-subtle); color: var(--failed-text); }
+  .status.vazio { background: var(--skipped-subtle); color: var(--skipped-text); }
+
+  .metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .metrica .valor { font-size: 24px; line-height: 32px; font-weight: 625; }
+  .metrica .rotulo { color: var(--text-secondary); font-size: 12px; line-height: 16px; }
+  .metrica.passou .valor { color: var(--passed-text); }
+  .metrica.falhou .valor { color: var(--failed-text); }
+
+  .barra { display: flex; height: 8px; border-radius: var(--radius-pill); overflow: hidden; background: var(--control-bg); }
+  .barra span { display: block; height: 100%; }
+  .barra .passou { background: var(--passed-bg); }
+  .barra .falhou { background: var(--failed-bg); }
+
+  .detalhes { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+  .detalhes dt { color: var(--text-secondary); }
+  .detalhes dd { margin: 0; overflow-wrap: anywhere; }
+
+  .acoes { display: flex; align-items: center; gap: 16px; margin-top: auto; padding-top: 4px; }
+  .botao {
+    display: inline-flex; align-items: center; padding: 6px 12px; border-radius: var(--radius-1);
+    background: var(--control-bg); color: var(--text-primary); font-weight: 625; text-decoration: none;
+  }
+  .botao:hover { background: var(--control-bg-hover); }
+  .link { color: var(--link); text-decoration: none; }
+  .link:hover { text-decoration: underline; }
+  .vazio-texto { color: var(--text-secondary); margin: 0; }
+
+  footer.conteudo { color: var(--text-secondary); font-size: 12px; line-height: 16px; padding-bottom: 32px; }
+</style>
+</head>
+<body>
+  <header class="topo">
+    <div class="conteudo">
+      <h1>RH NET Social · Testes de API</h1>
+      <p class="subtitulo">Último relatório de cada ambiente, com o histórico de tendências das execuções anteriores.</p>
+    </div>
+  </header>
+  <main class="conteudo">
+    <div class="grade">
+      
+      <section class="cartao">
+        <div class="cartao-topo">
+          <div><h2>Homologação</h2><div class="ambiente">HML</div></div>
+          <span class="status vazio">Sem execução</span>
+        </div>
+        <p class="vazio-texto">Nenhum relatório publicado para este ambiente ainda.</p>
+      </section>
+      <section class="cartao">
+        <div class="cartao-topo">
+          <div><h2>Produção</h2><div class="ambiente">PRD</div></div>
+          <span class="status falhou">Com falhas</span>
+        </div>
+        <div class="metricas">
+          <div class="metrica"><div class="valor">5</div><div class="rotulo">Cenários</div></div>
+          <div class="metrica passou"><div class="valor">0</div><div class="rotulo">Passaram</div></div>
+          <div class="metrica falhou"><div class="valor">5</div><div class="rotulo">Falharam</div></div>
+        </div>
+        <div class="barra" role="img" aria-label="0 de 5 cenários passaram">
+          <span class="passou" style="width:0.00%"></span><span class="falhou" style="width:100.00%"></span>
+        </div>
+        <dl class="detalhes"><dt>Executado em</dt><dd>27/09/2026 17:53</dd><dt>Duração</dt><dd>3,1 s</dd><dt>Spec</dt><dd>rhnetsocial: AAAA-MM-DD (vX.Y.Z)</dd></dl>
+        <div class="acoes">
+          <a class="botao" href="prd/">Abrir relatório</a>
+          <a class="link" href="https://github.com/alisonschatz/rhnet-api-test/actions/runs/36349675687" target="_blank" rel="noopener">Execução no GitHub Actions</a>
+        </div>
+      </section>
+    </div>
+  </main>
+  <footer class="conteudo">Publicado automaticamente pelo pipeline a cada execução · Relatórios gerados com Allure Report</footer>
+</body>
+</html>

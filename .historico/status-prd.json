@@ -1,0 +1,11 @@
+{
+  "ambiente": "prd",
+  "total": 5,
+  "passaram": 0,
+  "falharam": 5,
+  "duracaoMs": 3126,
+  "executadoEm": "27/09/2026 17:53",
+  "spec": "Spec prd | rhnetsocial: AAAA-MM-DD (vX.Y.Z)",
+  "resultado": "falhou",
+  "execucaoUrl": "https://github.com/alisonschatz/rhnet-api-test/actions/runs/36349675687"
+}
