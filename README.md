@@ -41,7 +41,8 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
 │   ├── workflows/api-tests.yml         # pipeline (hml e prd)
 │   ├── scripts/                        # publicação no GitHub Pages
 │   │   ├── publicar-relatorio.sh       #   publica o relatório de um ambiente
-│   │   └── gerar_pagina_inicial.py     #   monta a página inicial a partir dos resultados
+│   │   ├── gerar_pagina_inicial.py     #   monta a página inicial a partir dos resultados
+│   │   └── notificar_discord.py        #   envia o aviso de cada execução ao Discord
 │   └── pages/                          # template da página inicial (visual do Allure) e fonte
 └── src/test/
     ├── resources/
@@ -308,6 +309,30 @@ curl -X POST \
   -d '{"event_type":"deploy-hml","client_payload":{"versao":"'"$VERSAO"'"}}'
 ```
 
+**9. (Opcional) Receber avisos no Discord**
+
+A cada execução, o pipeline pode enviar um aviso a um canal do Discord com o resultado e o link do
+relatório:
+
+1. No Discord, nas configurações do canal (ex.: `#qa-alertas`): **Integrações → Webhooks →
+   Novo Webhook**. Dê um nome (ex.: *QA Bot*) e clique em **Copiar URL do Webhook**. Trate essa URL
+   como senha: quem a tiver pode enviar mensagens ao canal.
+2. No GitHub, em **Settings → Secrets and variables → Actions → New repository secret**, crie o
+   secret `DISCORD_WEBHOOK_URL` com a URL copiada.
+
+Pronto: a próxima execução já envia o aviso. Sem o secret, o passo é ignorado sem erro.
+
+O aviso segue as cores do relatório e traz os números da execução e os links:
+
+| Situação | Aviso |
+|---|---|
+| Todos os testes passaram | ✅ verde, com cenários, duração e versão implantada |
+| Algum teste falhou | ❌ vermelho, com "X de Y cenário(s) falharam" |
+| Os testes não chegaram a rodar | ⚠️ cinza, com o link da execução para ver o erro |
+
+Uma falha no envio ao Discord (URL inválida, Discord fora do ar) gera só um aviso no log da
+execução e nunca altera o resultado do pipeline.
+
 ### No dia a dia
 
 - **Execução manual:** Actions → *API Tests - RH NET Social* → *Run workflow*, escolhendo:
@@ -333,3 +358,4 @@ curl -X POST \
 | Site não abre (404) | Publicação ainda em andamento: aguarde alguns minutos |
 | Timeout ou conexão recusada nos testes | A API não é acessível pela internet: use um runner self-hosted na rede interna |
 | Relatório Allure não gerado | O runner não acessa nodejs.org e registry.npmjs.org (necessários na primeira geração) |
+| Aviso "Aviso no Discord não enviado" | URL do webhook inválida ou webhook apagado no Discord: recrie e atualize o secret |

@@ -151,6 +151,8 @@ jobs:
     # Publica sempre que houver relatório, inclusive quando há testes falhando
     if: always() && needs.testes.outputs.relatorio == 'true'
     runs-on: ubuntu-24.04
+    outputs:
+      url: ${{ steps.deploy.outputs.page_url }}
     permissions:
       contents: write   # salvar o site na branch "relatorios"
       pages: write      # publicar no GitHub Pages
@@ -189,3 +191,28 @@ jobs:
           URL="${{ steps.deploy.outputs.page_url }}$AMBIENTE/"
           echo "Relatório publicado: $URL"
           echo "### Relatório publicado: [$AMBIENTE]($URL)" >> "$GITHUB_STEP_SUMMARY"
+
+  notificar:
+    name: Notificar no Discord
+    needs: [testes, publicar]
+    # Avisa sempre, inclusive quando os testes falham ou nem chegam a rodar (exceto se cancelado)
+    if: always() && needs.testes.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      # Dados da execução (não existe quando os testes não chegaram a rodar)
+      - uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          name: publicacao-${{ env.AMBIENTE }}
+          path: ${{ runner.temp }}/publicacao
+
+      - name: Enviar aviso
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RELATORIO_URL: ${{ needs.publicar.outputs.url && format('{0}{1}/', needs.publicar.outputs.url, env.AMBIENTE) || '' }}
+          EXECUCAO_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 .github/scripts/notificar_discord.py "$AMBIENTE" "${{ runner.temp }}/publicacao/status.json"
