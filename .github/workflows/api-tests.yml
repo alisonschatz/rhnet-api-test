@@ -8,14 +8,18 @@ on:
   workflow_dispatch:
     inputs:
       ambiente:
-        description: "Ambiente"
+        description: "Ambiente onde os testes serão executados"
         type: choice
         options: [hml, prd]
         default: hml
-      tags:
-        description: "Tags do Karate (ex.: @smoke). Vazio = tudo"
-        required: false
-        default: ""
+      testes:
+        description: "Quais testes executar"
+        type: choice
+        options:
+          - Todos
+          - Smoke (essenciais e rápidos)
+          - Regressão (regras de negócio)
+        default: Todos
 
 env:
   AMBIENTE: ${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }}
@@ -67,8 +71,16 @@ jobs:
         env:
           SCI_PARCEIRO_TOKEN: ${{ secrets.SCI_PARCEIRO_TOKEN }}
           SCI_CLIENTE_TOKEN: ${{ secrets.SCI_CLIENTE_TOKEN }}
-          TAGS: ${{ github.event.inputs.tags }}
-        run: bash mvnw -B --no-transfer-progress test -Dkarate.env=$AMBIENTE ${TAGS:+-Dtags=$TAGS}
+          SELECAO: ${{ github.event.inputs.testes }}
+        run: |
+          # Disparo automático (deploy): sem seleção, roda todos os testes
+          case "$SELECAO" in
+            Smoke*)     TAGS="@smoke" ;;
+            Regressão*) TAGS="@regressao" ;;
+            *)          TAGS="" ;;
+          esac
+          echo "Ambiente: $AMBIENTE | Testes: ${TAGS:-todos}"
+          bash mvnw -B --no-transfer-progress test -Dkarate.env=$AMBIENTE ${TAGS:+-Dtags=$TAGS}
 
       - name: Gerar relatório Allure
         if: always() && hashFiles('target/allure-results/**') != ''

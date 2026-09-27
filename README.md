@@ -222,21 +222,74 @@ Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
 
 ## Pipeline
 
-**Environments** (Settings → Environments): crie `hml` e `prd`, cada um com os secrets
-`SCI_PARCEIRO_TOKEN` e `SCI_CLIENTE_TOKEN` daquele ambiente.
+O pipeline roda os testes no GitHub Actions e publica o relatório no GitHub Pages. A configuração
+é feita uma única vez, seguindo os passos abaixo na ordem.
 
-**GitHub Pages** (uma vez, após a primeira execução do pipeline, que cria a branch `gh-pages`):
-Settings → Pages → *Build and deployment* → Source: **Deploy from a branch** → Branch: **gh-pages** / **(root)**.
+### Passo a passo da configuração
 
-> **Visibilidade:** confira em Settings → Pages quem pode acessar o site. Em planos sem controle
-> de acesso ao Pages, o site de um repositório privado fica **público**. Os relatórios mascaram
-> dados sensíveis, mas mostram endpoints, parâmetros e respostas da API. Publique apenas se o
-> acesso estiver restrito à organização (ou se o time aceitar essa exposição).
+**1. Subir o projeto para o GitHub**
 
-Se a publicação falhar por falta de permissão, habilite em Settings → Actions → General →
-*Workflow permissions* a opção **Read and write permissions**.
+Crie o repositório (ex.: `rhnet-api-tests`) e envie o projeto para a branch principal (`main`).
+O workflow só é reconhecido pelo GitHub quando está na branch principal.
 
-**Disparo após deploy**: ao final do pipeline dos devs, use `deploy-hml` ou `deploy-prd`:
+**2. Cadastrar as credenciais de cada ambiente**
+
+Em **Settings → Environments**:
+
+1. Clique em **New environment**, digite `hml` e confirme.
+2. Em **Environment secrets**, clique em **Add environment secret** e cadastre:
+   - `SCI_PARCEIRO_TOKEN`: token de parceiro de hml
+   - `SCI_CLIENTE_TOKEN`: token de cliente de hml
+3. Repita para um environment chamado `prd`, com as credenciais de produção.
+
+Os nomes dos environments e dos secrets precisam ser exatamente esses. Opcionalmente, no
+environment `prd`, marque **Required reviewers** para exigir aprovação antes de cada execução.
+
+**3. Permitir que o pipeline publique o relatório**
+
+Em **Settings → Actions → General → Workflow permissions**, selecione
+**Read and write permissions** e salve. Se a opção estiver bloqueada, ela é definida pela
+organização: peça a um administrador para liberar.
+
+**4. Rodar o pipeline pela primeira vez**
+
+Em **Actions**, selecione **API Tests - RH NET Social**, clique em **Run workflow**, escolha o
+ambiente e confirme. Ao final, a execução terá dois jobs concluídos: **Testes de API** e
+**Publicar relatório**. Essa primeira execução cria a branch `gh-pages`, onde o site fica.
+
+**5. Ativar o GitHub Pages**
+
+Em **Settings → Pages**, em **Build and deployment**:
+
+1. **Source:** selecione **Deploy from a branch**.
+2. **Branch:** selecione **gh-pages** e a pasta **/ (root)**, e clique em **Save**.
+
+Em um ou dois minutos, o endereço do site aparece no topo da mesma página:
+`https://<org>.github.io/rhnet-api-tests/`.
+
+**6. Conferir quem pode acessar o site**
+
+Ainda em **Settings → Pages**, confira a visibilidade do site.
+
+> Em planos sem controle de acesso ao Pages, o site de um repositório privado fica **público na
+> internet**. Os relatórios mascaram dados sensíveis, mas mostram endpoints, parâmetros e respostas
+> da API. No GitHub Enterprise Cloud, selecione a visibilidade **Private** para restringir o acesso
+> a quem tem acesso ao repositório. Sem essa opção, avalie com o time antes de manter o site ativo.
+
+**7. Conferir o resultado**
+
+Abra o endereço do site: a página inicial mostra o cartão do ambiente executado, com o link para o
+relatório. A partir daqui, toda execução do pipeline atualiza o site automaticamente.
+
+**8. (Opcional) Disparar os testes a cada deploy**
+
+Para rodar os testes automaticamente após cada deploy, o pipeline dos devs chama este repositório:
+
+1. Crie um token em **GitHub → Settings (do seu perfil) → Developer settings → Personal access tokens
+   → Fine-grained tokens**, com acesso somente a este repositório e a permissão
+   **Contents: Read and write**.
+2. Cadastre esse token como secret no pipeline dos devs (ex.: `GH_TOKEN_QA`).
+3. Ao final do deploy, o pipeline dos devs executa, usando `deploy-hml` ou `deploy-prd`:
 
 ```bash
 curl -X POST \
@@ -246,11 +299,22 @@ curl -X POST \
   -d '{"event_type":"deploy-hml","client_payload":{"versao":"'"$VERSAO"'"}}'
 ```
 
-**Execução manual**: Actions → *API Tests* → *Run workflow*, escolhendo ambiente e tags.
+### No dia a dia
 
-**Resultado de cada execução:** o resumo aparece na página da execução (aba Actions), com o link
-do relatório publicado.
+- **Execução manual:** Actions → *API Tests - RH NET Social* → *Run workflow*, escolhendo:
+  - **Ambiente:** `hml` ou `prd`.
+  - **Quais testes executar:** *Todos*, *Smoke* (essenciais e rápidos) ou *Regressão* (regras de negócio).
+- **Disparo automático (após deploy):** roda sempre **todos** os testes do ambiente informado.
+- **Resultado:** a página da execução (aba Actions) mostra o resumo, com o link do relatório publicado.
+- **Relatório:** sempre o mais recente de cada ambiente, no endereço do site.
 
-> Se as APIs só forem acessíveis pela rede interna, use um runner self-hosted.
-> O runner também precisa de acesso a nodejs.org e registry.npmjs.org na primeira geração do
-> relatório Allure (depois, o cache é reaproveitado).
+### Problemas comuns
+
+| Sintoma | Causa provável |
+|---|---|
+| O workflow não aparece na aba Actions | O arquivo não está na branch principal |
+| Falha em "Executar testes" com erro de credenciais | Secrets ausentes ou com nome diferente no environment |
+| Falha em "Publicar no GitHub Pages" com erro 403 | Passo 3 não aplicado (permissão de escrita) |
+| Site não abre (404) | Passo 5 não aplicado, ou publicação ainda em andamento (aguarde alguns minutos) |
+| Timeout ou conexão recusada nos testes | A API não é acessível pela internet: use um runner self-hosted na rede interna |
+| Relatório Allure não gerado | O runner não acessa nodejs.org e registry.npmjs.org (necessários na primeira geração) |
