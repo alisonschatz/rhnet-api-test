@@ -30,7 +30,6 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
 ```
 ├── ambientes.json                      # URLs de cada ambiente (hml, prd)
 ├── dados-teste.json                    # massa de teste por ambiente e cliente (colaborador, empresa)
-├── problemas-conhecidos.json           # falhas já reportadas aos devs (ver Problemas conhecidos)
 ├── .env.example                        # modelo do .env.hml / .env.prd (credenciais)
 ├── spec/
 │   ├── hml/  rhnetsocial.json, INFO.md # spec oficial e histórico de cada ambiente
@@ -80,7 +79,7 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
                 │   └── GeradorDados.java       CPF válido, nomes, datas
                 └── relatorio/          #   resumo da execução
                     ├── ResumoExecucao.java     resumo no terminal, no GitHub Actions e na página inicial
-                    └── ProblemasConhecidos.java  leitura do problemas-conhecidos.json
+                    └── Bugs.java               tags @bug-<chamado> (falhas conhecidas)
 ```
 
 Onde colocar algo novo:
@@ -235,31 +234,28 @@ Falhas novas (1 causa):
     - Sessão sistema-52 sem acesso à empresa 573350 (status 403): ...
 ```
 
-## Problemas conhecidos
+## Bugs conhecidos
 
-Falhas já reportadas aos devs ficam registradas em `problemas-conhecidos.json`:
+Quando um teste pega um bug e ele é reportado aos devs, marque o cenário com a tag
+`@bug-<número do chamado>`:
 
-```json
-{
-  "urlDoChamado": "https://suaempresa.atlassian.net/browse/%s",
-  "problemas": [
-    {
-      "id": "RHNET-123",
-      "descricao": "Erro 401 retorna o campo 'message' em vez de 'mensagem'",
-      "mensagemDoErro": "does not contain key - 'mensagem'",
-      "ambientes": ["hml", "prd"]
-    }
-  ]
-}
+```gherkin
+@regressao @bug-RHNET-123
+Scenario: Consulta sem token de acesso é rejeitada (401)
 ```
 
-- Uma falha é **conhecida** quando a mensagem de erro contém `mensagemDoErro` (trecho ou expressão
-  regular). Use o trecho mais específico possível, para não esconder falhas diferentes.
-- Falhas conhecidas **continuam aparecendo** no terminal, no resumo do GitHub, na página inicial e no
-  relatório (filtro *Resolution*), mas **não reprovam a execução**: só falhas novas deixam o pipeline
-  vermelho.
-- `urlDoChamado` é opcional: com ela, o relatório Allure mostra o link de cada chamado.
-- Quando o bug for corrigido, **remova a entrada**. Se a falha voltar, ela aparece como nova.
+Enquanto o bug não for corrigido, o cenário continua rodando e aparecendo em todos os relatórios
+como **falha conhecida**, mas **não reprova a execução**: só falhas novas deixam o pipeline vermelho.
+Assim, o vermelho sempre significa que algo novo quebrou.
+
+| Situação | O que acontece |
+|---|---|
+| Cenário com `@bug-...` **falha** | Falha conhecida: aparece no resumo e na categoria "Falhas conhecidas" do Allure |
+| Cenário com `@bug-...` **passa** | O resumo avisa: "Bugs possivelmente corrigidos: remova a tag" |
+| Cenário **sem** `@bug-...` falha | Falha nova: reprova a execução |
+
+Quando os devs corrigirem, **remova a tag**. Se o bug voltar depois disso, o cenário aparece
+como falha nova.
 
 ## Limpeza de dados de teste órfãos
 
@@ -389,6 +385,7 @@ Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
 | `@regressao` | Regras de negócio detalhadas |
 | `@fluxo` | Fluxos completos (criar -> remover) |
 | `@limpeza` | Limpeza de dados de teste órfãos: nunca roda junto com os testes, só quando pedida |
+| `@bug-<chamado>` | O cenário falha por um bug já reportado (ver [Bugs conhecidos](#bugs-conhecidos)) |
 | `@ignore` | Features auxiliares ou modelos; nunca executam diretamente |
 
 ### Convenções

@@ -4,6 +4,7 @@ import io.karatelabs.core.Runner;
 import io.karatelabs.core.SuiteResult;
 import io.qameta.allure.karate.AllureKarate;
 import org.junit.jupiter.api.Test;
+import rhnet.support.relatorio.Bugs;
 import rhnet.support.relatorio.ResumoExecucao;
 
 import java.io.IOException;
@@ -57,13 +58,14 @@ class RhnetTest {
         }
 
         SuiteResult resultado = runner.parallel(threads);
+        Bugs.marcarNoAllure(resultado);
         ResumoExecucao.gerar(resultado, ambiente);
         // Os scripts rodar exibem o resumo por conta própria (-Drodar=true); IDE e pipeline, aqui
         if (!Boolean.getBoolean("rodar")) {
             System.out.println();
             System.out.println(ResumoExecucao.console(resultado, ambiente));
         }
-        // Só falhas NOVAS reprovam a execução; as conhecidas (problemas-conhecidos.json) apenas aparecem
+        // Só falhas NOVAS reprovam a execução; as conhecidas (cenários com @bug-...) apenas aparecem
         int novas = ResumoExecucao.falhasNovas(resultado, ambiente);
         assertEquals(0, novas, novas + " cenário(s) com falha nova. Detalhes nos relatórios Allure e Karate.");
     }

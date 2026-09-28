@@ -144,7 +144,8 @@ Feature: Dependentes - consulta (GET /api/v1/dependentes)
       | sistema-52  |
       | sistema-19  |
 
-  @regressao @seguranca
+  # Bug: a API responde 'message' em vez de 'mensagem'. Troque A-DEFINIR-1 pelo número do chamado.
+  @regressao @seguranca @bug-A-DEFINIR-1
   Scenario: Consulta sem token de acesso é rejeitada (401)
 
     * def s = sessoes['parceiro-52']
@@ -154,7 +155,8 @@ Feature: Dependentes - consulta (GET /api/v1/dependentes)
     And match response contains { mensagem: '#string' }
     * validarContrato()
 
-  @regressao @seguranca
+  # Bug: a API responde 'message' em vez de 'mensagem'. Troque A-DEFINIR-1 pelo número do chamado.
+  @regressao @seguranca @bug-A-DEFINIR-1
   Scenario: Consulta com token inválido é rejeitada (401)
 
     * def s = sessoes['parceiro-52']

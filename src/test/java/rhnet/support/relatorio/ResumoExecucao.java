@@ -23,18 +23,23 @@ import java.util.Map;
  *   target/resumo-execucao.json  números da execução, usados na página inicial publicada
  *   target/resumo-console.txt    resumo curto exibido no terminal
  *
- * As falhas são separadas em NOVAS e CONHECIDAS (problemas-conhecidos.json): só as novas
- * fazem a execução falhar. Falhas na geração dos resumos nunca alteram o resultado dos testes.
+ * As falhas são separadas em NOVAS e CONHECIDAS (cenários com a tag @bug-<chamado>): só as novas
+ * fazem a execução falhar. Cenários com @bug-... que passaram são listados para remoção da tag.
+ * Falhas na geração dos resumos nunca alteram o resultado dos testes.
  */
 public final class ResumoExecucao {
 
     private static final DateTimeFormatter DATA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final ZoneId FUSO = ZoneId.of("America/Sao_Paulo");
 
-    /** Um cenário com falha, já classificado. */
-    private record Falha(String funcionalidade, String cenario, String mensagem, ProblemasConhecidos.Problema conhecido) {
+    /** Um cenário com falha. Conhecida quando o cenário tem tag @bug-<chamado>. */
+    private record Falha(String funcionalidade, String cenario, String mensagem, List<String> bugs) {
         String nomeCompleto() {
             return funcionalidade + ": " + cenario;
+        }
+
+        boolean conhecida() {
+            return !bugs.isEmpty();
         }
     }
 
@@ -61,22 +66,35 @@ public final class ResumoExecucao {
         return console(resultado, ambiente, falhas(resultado, ambiente));
     }
 
-    /** Quantidade de falhas NOVAS (não registradas em problemas-conhecidos.json). */
+    /** Quantidade de falhas NOVAS (cenários sem tag @bug-...). */
     public static int falhasNovas(SuiteResult resultado, String ambiente) {
-        return (int) falhas(resultado, ambiente).stream().filter(f -> f.conhecido() == null).count();
+        return (int) falhas(resultado, ambiente).stream().filter(f -> !f.conhecida()).count();
     }
 
     // =================================================================== classificação
 
     private static List<Falha> falhas(SuiteResult resultado, String ambiente) {
-        ProblemasConhecidos conhecidos = ProblemasConhecidos.carregar(ambiente);
         List<Falha> lista = new ArrayList<>();
         for (FeatureResult fr : resultado.getFeatureResults()) {
             for (ScenarioResult r : fr.getScenarioResults()) {
                 if (r.isFailed()) {
-                    String msg = r.getFailureMessage();
-                    lista.add(new Falha(r.getScenario().getFeature().getName(), r.getScenario().getName(), msg,
-                            conhecidos.identificar(msg)));
+                    lista.add(new Falha(r.getScenario().getFeature().getName(), r.getScenario().getName(),
+                            r.getFailureMessage(), Bugs.chamados(r.getScenario())));
+                }
+            }
+        }
+        return lista;
+    }
+
+    /** Cenários com tag @bug-... que PASSARAM: o bug provavelmente foi corrigido. */
+    private static List<String> bugsCorrigidos(SuiteResult resultado) {
+        List<String> lista = new ArrayList<>();
+        for (FeatureResult fr : resultado.getFeatureResults()) {
+            for (ScenarioResult r : fr.getScenarioResults()) {
+                List<String> bugs = Bugs.chamados(r.getScenario());
+                if (!r.isFailed() && !bugs.isEmpty()) {
+                    lista.add("@bug-" + String.join(", @bug-", bugs) + " em " + r.getScenario().getFeature().getName()
+                            + ": " + r.getScenario().getName());
                 }
             }
         }
@@ -87,8 +105,8 @@ public final class ResumoExecucao {
 
     private static String console(SuiteResult resultado, String ambiente, List<Falha> falhas) {
         int total = resultado.getScenarioCount();
-        List<Falha> novas = falhas.stream().filter(f -> f.conhecido() == null).toList();
-        List<Falha> conhecidas = falhas.stream().filter(f -> f.conhecido() != null).toList();
+        List<Falha> novas = falhas.stream().filter(f -> !f.conhecida()).toList();
+        List<Falha> conhecidas = falhas.stream().filter(Falha::conhecida).toList();
 
         StringBuilder sb = new StringBuilder();
         sb.append("Resultado em ").append(ambiente.toUpperCase(Locale.ROOT)).append(": ")
@@ -124,14 +142,25 @@ public final class ResumoExecucao {
         }
 
         if (!conhecidas.isEmpty()) {
-            Map<ProblemasConhecidos.Problema, Integer> porProblema = new LinkedHashMap<>();
+            Map<String, List<String>> porBug = new LinkedHashMap<>();
             for (Falha f : conhecidas) {
-                porProblema.merge(f.conhecido(), 1, Integer::sum);
+                porBug.computeIfAbsent(String.join(", ", f.bugs()), k -> new ArrayList<>()).add(f.nomeCompleto());
             }
-            sb.append("\nFalhas conhecidas (já reportadas, não fazem a execução falhar):\n");
-            for (Map.Entry<ProblemasConhecidos.Problema, Integer> p : porProblema.entrySet()) {
-                sb.append("  - ").append(p.getKey().id()).append(": ").append(p.getKey().descricao())
-                  .append(" (").append(p.getValue()).append(p.getValue() == 1 ? " cenário)" : " cenários)").append("\n");
+            sb.append("\nFalhas conhecidas (bug já reportado, não reprovam a execução):\n");
+            for (Map.Entry<String, List<String>> bug : porBug.entrySet()) {
+                sb.append("  - ").append(bug.getKey()).append(" (").append(bug.getValue().size())
+                  .append(bug.getValue().size() == 1 ? " cenário)" : " cenários)").append("\n");
+                for (int i = 0; i < Math.min(3, bug.getValue().size()); i++) {
+                    sb.append("      ").append(bug.getValue().get(i)).append("\n");
+                }
+            }
+        }
+
+        List<String> corrigidos = bugsCorrigidos(resultado);
+        if (!corrigidos.isEmpty()) {
+            sb.append("\nBugs possivelmente corrigidos (o cenário passou): remova a tag\n");
+            for (String c : corrigidos) {
+                sb.append("  - ").append(c).append("\n");
             }
         }
         return sb.toString();
@@ -261,7 +290,7 @@ public final class ResumoExecucao {
     // =================================================================== markdown e json
 
     private static String markdown(SuiteResult resultado, String ambiente, String momento, List<Falha> falhas) {
-        long novas = falhas.stream().filter(f -> f.conhecido() == null).count();
+        long novas = falhas.stream().filter(f -> !f.conhecida()).count();
         long conhecidas = falhas.size() - novas;
         StringBuilder md = new StringBuilder();
         md.append("## Testes de API - RH NET Social (").append(ambiente.toUpperCase(Locale.ROOT)).append(")\n\n")
@@ -283,10 +312,18 @@ public final class ResumoExecucao {
               .append("| Tipo | Funcionalidade | Cenário | Motivo |\n")
               .append("|---|---|---|---|\n");
             for (Falha f : falhas) {
-                md.append("| ").append(f.conhecido() == null ? "❌ Nova" : "⚠️ Conhecida (" + celula(f.conhecido().id()) + ")")
+                md.append("| ").append(f.conhecida() ? "⚠️ Conhecida (" + celula(String.join(", ", f.bugs())) + ")" : "❌ Nova")
                   .append(" | ").append(celula(f.funcionalidade()))
                   .append(" | ").append(celula(f.cenario()))
                   .append(" | ").append(celula(motivo(f.mensagem()))).append(" |\n");
+            }
+            md.append("\n");
+        }
+        List<String> corrigidos = bugsCorrigidos(resultado);
+        if (!corrigidos.isEmpty()) {
+            md.append("### Bugs possivelmente corrigidos\n\nO cenário passou: confirme com os devs e remova a tag.\n\n");
+            for (String c : corrigidos) {
+                md.append("- ").append(celula(c)).append("\n");
             }
             md.append("\n");
         }
@@ -295,7 +332,7 @@ public final class ResumoExecucao {
     }
 
     private static String json(SuiteResult resultado, String ambiente, String momento, List<Falha> falhas) {
-        long novas = falhas.stream().filter(f -> f.conhecido() == null).count();
+        long novas = falhas.stream().filter(f -> !f.conhecida()).count();
         return "{\n"
                 + "  \"ambiente\": " + texto(ambiente) + ",\n"
                 + "  \"total\": " + resultado.getScenarioCount() + ",\n"
@@ -303,6 +340,7 @@ public final class ResumoExecucao {
                 + "  \"falharam\": " + falhas.size() + ",\n"
                 + "  \"falhasNovas\": " + novas + ",\n"
                 + "  \"falhasConhecidas\": " + (falhas.size() - novas) + ",\n"
+                + "  \"bugsPossivelmenteCorrigidos\": " + bugsCorrigidos(resultado).size() + ",\n"
                 + "  \"duracaoMs\": " + resultado.getDurationMillis() + ",\n"
                 + "  \"executadoEm\": " + texto(momento) + ",\n"
                 + "  \"spec\": " + texto(infoSpec(ambiente)) + "\n"

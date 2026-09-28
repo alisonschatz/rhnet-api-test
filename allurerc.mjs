@@ -4,12 +4,11 @@
 // - Histórico de tendências separado por ambiente, para que hml e prd não se misturem.
 // - Interface em português por padrão (quem trocar o idioma no relatório mantém a própria escolha).
 // - No GitHub Actions, o relatório exibe o link da execução que o gerou.
-// - Problemas conhecidos (filtro "Resolution"): lidos de problemas-conhecidos.json.
-// - Categorias próprias: agrupam as falhas pela natureza do problema.
+// - Categorias próprias: agrupam as falhas pela natureza do problema. Cenários com a tag
+//   @bug-<chamado> (bug já reportado) ficam na categoria "Falhas conhecidas".
 //
 // O nome do relatório não é definido aqui: o plugin allure-maven o fixa como "Allure".
 // Ele é ajustado depois da geração por scripts/NomeRelatorioAllure.java.
-import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const ambiente = process.env.ALLURE_AMBIENTE || "hml";
@@ -25,32 +24,11 @@ const execucaoGithub = GITHUB_RUN_ID
     }
   : undefined;
 
-// -------------------------------------------------- problemas conhecidos
-// Mesmo arquivo usado pelo resumo da execução: falhas já reportadas aos devs.
-// Com urlDoChamado (modelo com %s), cada problema vira um chamado com link no relatório;
-// sem ela, vira uma falha "aceita", com o id e a descrição no comentário.
-function resolucoes() {
-  if (!existsSync(arquivo("problemas-conhecidos.json"))) return { rules: [] };
-  try {
-    const { urlDoChamado = "", problemas = [] } = JSON.parse(readFileSync(arquivo("problemas-conhecidos.json"), "utf8"));
-    const comLink = /^https?:\/\/[^%]*%s[^%]*$/.test(urlDoChamado);
-    const rules = problemas
-      .filter((p) => p.mensagemDoErro && (!p.ambientes || p.ambientes.includes(ambiente)))
-      .map((p) =>
-        comLink
-          ? { resolution: "issue", issue: { id: p.id, type: "chamado" }, messageRegexp: p.mensagemDoErro, comment: p.descricao }
-          : { resolution: "accepted", messageRegexp: p.mensagemDoErro, comment: `${p.id}: ${p.descricao}` },
-      );
-    return comLink ? { links: { chamado: { urlTemplate: urlDoChamado, nameTemplate: "%s" } }, rules } : { rules };
-  } catch (e) {
-    console.warn(`problemas-conhecidos.json inválido; ignorado no relatório: ${e.message}`);
-    return { rules: [] };
-  }
-}
-
 // ------------------------------------------------------------ categorias
 // Avaliadas em ordem: a primeira que reconhecer a falha é a usada.
 const categorias = [
+  // Tag @bug-<chamado> no cenário, repassada ao Allure por rhnet.support.relatorio.Bugs
+  { name: "Falhas conhecidas (bug já reportado)", matchers: { statuses: ["failed", "broken"], labels: { tag: /^bug-/ } } },
   {
     name: "Configuração do ambiente",
     matchers: { message: /não está pronto para os testes|Credenciais de .* ausentes|Falha ao gerar o token|dados-teste\.json|ambientes\.json/ },
@@ -72,7 +50,6 @@ const categorias = [
 export default {
   historyPath: arquivo(`.allure/historico-${ambiente}.jsonl`),
   appendHistory: true,
-  resolutions: resolucoes(),
   categories: categorias,
   plugins: {
     awesome: {
