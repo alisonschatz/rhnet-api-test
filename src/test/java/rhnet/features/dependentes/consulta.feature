@@ -151,7 +151,7 @@ Feature: Dependentes - consulta (GET /api/v1/dependentes)
     Given param empresa_id = s.empresaId
     When method get
     Then status 401
-    And match response.mensagem == '#string'
+    And match response contains { mensagem: '#string' }
     * validarContrato()
 
   @regressao @seguranca
@@ -162,7 +162,7 @@ Feature: Dependentes - consulta (GET /api/v1/dependentes)
     Given param empresa_id = s.empresaId
     When method get
     Then status 401
-    And match response.mensagem == '#string'
+    And match response contains { mensagem: '#string' }
     * validarContrato()
 
   @fluxo

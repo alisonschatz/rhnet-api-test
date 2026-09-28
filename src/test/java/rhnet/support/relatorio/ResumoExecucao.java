@@ -122,26 +122,40 @@ public final class ResumoExecucao {
         if (mensagem == null || mensagem.isBlank()) {
             return List.of("Falha sem mensagem (veja o relatório)", "");
         }
-        String erro = null;
+        String[] linhas = mensagem.split("\\R");
+
+        // Erro de JavaScript do Karate: "Code:" e "Error:" (o erro pode ocupar várias linhas,
+        // até a linha "==========" que fecha o bloco)
         String codigo = "";
-        for (String linha : mensagem.split("\\R")) {
-            String l = linha.trim();
-            if (l.startsWith("Error:") && erro == null) {
-                erro = l.substring(6).trim();
-            } else if (l.startsWith("Code:") && codigo.isEmpty()) {
+        StringBuilder erro = null;
+        for (int i = 0; i < linhas.length; i++) {
+            String l = linhas[i].trim();
+            if (l.startsWith("Code:") && codigo.isEmpty()) {
                 codigo = limitar(l.substring(5).trim(), 100);
+            } else if (l.startsWith("Error:") && erro == null) {
+                erro = new StringBuilder(l.substring(6).trim());
+                for (int j = i + 1; j < linhas.length && !linhas[j].trim().equals("=========="); j++) {
+                    erro.append('\n').append(linhas[j]);
+                }
             }
         }
         if (erro != null) {
-            return List.of(limitar(erro, 220), codigo);
+            String texto = erro.toString().trim();
+            // Falhas geradas pelo próprio projeto (karate.fail) já explicam a causa: o código não ajuda
+            String onde = codigo.contains("karate.fail(") ? "" : codigo;
+            String contrato = resumoContrato(texto);
+            if (contrato != null) {
+                return List.of(contrato, "");
+            }
+            return List.of(limitar(primeiraLinha(texto), 220), onde);
         }
+
         String primeira = primeiraLinha(mensagem);
         int corte = primeira.indexOf(", response time");
         if (corte > 0) {
             primeira = primeira.substring(0, corte);
         }
         if (primeira.startsWith("match failed")) {
-            String[] linhas = mensagem.split("\\R");
             for (int i = 1; i < linhas.length; i++) {
                 String l = linhas[i].trim();
                 if (!l.isEmpty() && !l.matches("=+")) {
@@ -151,6 +165,46 @@ public final class ResumoExecucao {
             }
         }
         return List.of(primeira, "");
+    }
+
+    /**
+     * Resume em uma linha as mensagens da validação de contrato (MensagensContrato):
+     * tipo, operação e a primeira divergência. Retorna null se não for uma delas.
+     */
+    static String resumoContrato(String texto) {
+        String[] l = texto.split("\\R");
+        String titulo = null;
+        String subtitulo = "";
+        String primeira = null;
+        String campo = null;
+        int divergencias = 0;
+        for (int i = 0; i < l.length; i++) {
+            String t = l[i].trim();
+            if (titulo == null && (t.equals("CONTRATO VIOLADO") || t.equals("SPEC INVÁLIDA") || t.equals("SPEC NÃO ENCONTRADA"))) {
+                titulo = t;
+                subtitulo = i + 1 < l.length ? l[i + 1].trim() : "";
+            } else if (t.matches("\\[\\d+\\] .+")) {
+                divergencias++;
+                if (primeira == null) {
+                    primeira = t.replaceFirst("\\[\\d+\\] ", "");
+                }
+            } else if (campo == null && primeira != null && (t.startsWith("Campo:") || t.startsWith("Local:"))) {
+                campo = t.substring(t.indexOf(':') + 1).trim();
+            }
+        }
+        if (titulo == null) {
+            return null;
+        }
+        String operacao = subtitulo.split("\\s+\\|\\s+")[0];
+        String status = subtitulo.contains("status ") ? subtitulo.replaceAll(".*status (\\d+).*", " (status $1)") : "";
+        return switch (titulo) {
+            case "CONTRATO VIOLADO" -> "Contrato violado em " + operacao + status + ": "
+                    + (primeira != null ? primeira : "divergência") + (campo != null ? " em " + campo : "")
+                    + (divergencias > 1 ? " (e mais " + (divergencias - 1) + " divergência(s))" : "");
+            case "SPEC INVÁLIDA" -> "Spec inválida (" + subtitulo + "): "
+                    + (primeira != null ? primeira : "") + (divergencias > 1 ? " (e mais " + (divergencias - 1) + " problema(s))" : "");
+            default -> "Spec não encontrada: " + subtitulo;
+        };
     }
 
     /** Causa em uma única linha (usada na tabela do resumo em Markdown). */

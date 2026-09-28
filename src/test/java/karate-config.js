@@ -5,6 +5,8 @@
  *   URLs:         ambientes.json          Massa de teste: dados-teste.json
  *   Credenciais:  .env.<ambiente> (local) ou variáveis de ambiente (pipeline)
  *
+ * Massa de teste (dados-teste.json, por ambiente e cliente): empresaId e funcionarioContribuinteId.
+ *
  * Sessões (uma por combinação de tokens, autenticadas uma única vez por execução):
  *   parceiro-52, parceiro-19   token de parceiro   (integração externa)
  *   sistema-52,  sistema-19    token de sistema    (sistema de folha / desktop)
@@ -99,54 +101,46 @@ function fn() {
   // -------------------------------------------------------------- sessões
   var tokens = karate.callSingle('classpath:rhnet/support/auth/obter-tokens.feature',
     { authUrl: urls.authUrl, ambiente: ambiente, logins: logins }).tokens;
-  var Auth = Java.type('rhnet.support.auth.Autenticacao');
   var massa = (karate.read('file:dados-teste.json')[ambiente]) || {};
-
-  function empresasDoToken(token) {
-    try {
-      var jwt = karate.fromJson(Auth.payloadJwt(token));
-      return (jwt.usuario && jwt.usuario.dados && jwt.usuario.dados.empresasVinculadas) || [];
-    } catch (e) {
-      return [];
-    }
-  }
-
-  // Empresa de cada cliente: dados-teste.json ou, se vazio, a primeira empresa vinculada no token
-  var empresaDoCliente = {};
-  for (var k = 0; k < DEFINICAO_SESSOES.length; k++) {
-    var dc = DEFINICAO_SESSOES[k];
-    var definida = massa[dc.cliente] && massa[dc.cliente].empresaId;
-    if (definida) empresaDoCliente[dc.cliente] = definida;
-    if (!empresaDoCliente[dc.cliente]) empresaDoCliente[dc.cliente] = empresasDoToken(tokens[dc.nome])[0] || null;
+  function valorDaMassa(cliente, campo) {
+    var v = massa[cliente] && massa[cliente][campo];
+    return (v && v !== 'PREENCHER') ? v : null;
   }
 
   config.sessoes = {};
   for (var m = 0; m < DEFINICAO_SESSOES.length; m++) {
     var ds = DEFINICAO_SESSOES[m];
-    var funcionario = massa[ds.cliente] && massa[ds.cliente].funcionarioContribuinteId;
     config.sessoes[ds.nome] = {
       nome: ds.nome,
       tipo: ds.tipo,
       cliente: ds.cliente,
       token: tokens[ds.nome],
-      empresaId: empresaDoCliente[ds.cliente],
-      funcionarioId: (funcionario && funcionario !== 'PREENCHER') ? funcionario : null
+      empresaId: valorDaMassa(ds.cliente, 'empresaId'),
+      funcionarioId: valorDaMassa(ds.cliente, 'funcionarioContribuinteId')
     };
   }
 
   config.usarSessao = function (nome) {
     var s = config.sessoes[nome];
     if (!s) karate.fail('Sessão desconhecida: ' + nome);
-    if (!s.empresaId) karate.fail('Empresa do cliente ' + s.cliente + ' não identificada: defina empresaId em dados-teste.json (' + ambiente + ')');
+    if (!s.empresaId) {
+      karate.fail('Defina empresaId do cliente ' + s.cliente + ' em dados-teste.json ("' + ambiente + '"): empresa de teste do cliente.');
+    }
     karate.configure('headers', { Authorization: 'Bearer ' + s.token, Accept: 'application/json' });
     return s;
   };
 
+  // Empresa de OUTRO cliente, para os testes de acesso indevido
   config.outraEmpresa = function (s) {
-    for (var c in empresaDoCliente) {
-      if (c !== s.cliente && empresaDoCliente[c] && empresaDoCliente[c] !== s.empresaId) return empresaDoCliente[c];
+    var outro = s.cliente === '52' ? '19' : '52';
+    var empresa = valorDaMassa(outro, 'empresaId');
+    if (!empresa) {
+      karate.fail('Defina empresaId do cliente ' + outro + ' em dados-teste.json ("' + ambiente + '"): usado nos testes de acesso indevido.');
     }
-    karate.fail('Não há empresa de outro cliente para o teste de acesso indevido');
+    if (empresa === s.empresaId) {
+      karate.fail('Os clientes 52 e 19 estão com o mesmo empresaId em dados-teste.json ("' + ambiente + '"): cada cliente precisa da sua empresa de teste.');
+    }
+    return empresa;
   };
 
   // ----------------------------------------------------------- relatórios

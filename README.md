@@ -141,11 +141,11 @@ O `dados-teste.json` define, por ambiente e cliente:
 
 | Campo | Conteúdo |
 |---|---|
-| `funcionarioContribuinteId` | Colaborador de teste **ativo, sem desligamento e já liberado** (exigência para cadastrar e liberar dependentes) |
-| `empresaId` | Opcional. Quando `null`, usa a primeira empresa vinculada ao usuário no token |
+| `empresaId` | Empresa de teste do cliente. Cada cliente precisa da sua: os testes de acesso indevido usam a empresa de um cliente com a sessão do outro |
+| `funcionarioContribuinteId` | Colaborador de teste dessa empresa, **ativo, sem desligamento e já liberado** (exigência para cadastrar e liberar dependentes) |
 
-Sem o colaborador preenchido, os testes que criam dependentes param com uma mensagem indicando
-o que falta.
+Sem esses dados, os testes param com uma mensagem indicando exatamente o que falta. A empresa não é
+obtida do token, porque as empresas vinculadas no token são as do usuário, e não as do cliente.
 
 ---
 
