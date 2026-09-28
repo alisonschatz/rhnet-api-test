@@ -30,6 +30,7 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
 ```
 ├── ambientes.json                      # URLs de cada ambiente (hml, prd)
 ├── dados-teste.json                    # massa de teste por ambiente e cliente (colaborador, empresa)
+├── problemas-conhecidos.json           # falhas já reportadas aos devs (ver Problemas conhecidos)
 ├── .env.example                        # modelo do .env.hml / .env.prd (credenciais)
 ├── spec/
 │   ├── hml/  rhnetsocial.json, INFO.md # spec oficial e histórico de cada ambiente
@@ -58,7 +59,8 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
             │
             ├── features/               # OS TESTES, uma pasta por área da API
             │   ├── dependentes/        #   consulta, cadastro, atualização e exclusão
-            │   └── liberacoes/         #   liberação de dependentes
+            │   ├── liberacoes/         #   liberação de dependentes
+            │   └── manutencao/         #   limpeza de dados de teste órfãos (@limpeza)
             │
             ├── modelos/                # modelos para novas features (não executam)
             │
@@ -68,7 +70,8 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
                 │   ├── login.feature           login de uma sessão
                 │   └── Autenticacao.java       Basic Auth e leitura do JWT
                 ├── dependentes/        #   pré-condições e limpeza dos testes de dependentes
-                │   └── criar, consultar, liberar, remover (.feature)
+                │   └── criar, consultar, liberar, remover, listar-pagina (.feature)
+                ├── verificacao/        #   verificação do ambiente antes dos testes
                 ├── contrato/           #   validação de respostas contra a spec
                 │   ├── ValidadorContrato.java  carrega a spec e valida
                 │   ├── MensagensContrato.java  monta as mensagens do relatório
@@ -76,7 +79,8 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
                 ├── dados/              #   massa de dados sintética
                 │   └── GeradorDados.java       CPF válido, nomes, datas
                 └── relatorio/          #   resumo da execução
-                    └── ResumoExecucao.java     tabela de resultados (GitHub Actions)
+                    ├── ResumoExecucao.java     resumo no terminal, no GitHub Actions e na página inicial
+                    └── ProblemasConhecidos.java  leitura do problemas-conhecidos.json
 ```
 
 Onde colocar algo novo:
@@ -212,6 +216,67 @@ Pela IDE: rode a classe `RhnetTest` (para prd, adicione `-Dkarate.env=prd` nas V
 
 ---
 
+## Verificação do ambiente
+
+Antes de qualquer teste, uma verificação única confere se o ambiente está pronto:
+
+- `dados-teste.json` preenchido para os dois clientes, com empresas diferentes;
+- cada uma das quatro sessões consegue acessar a empresa de teste do seu cliente.
+
+Se algo estiver errado, **nenhum teste roda**, e o terminal lista todos os problemas de uma vez:
+
+```
+Falhas novas (1 causa):
+  Todos os cenários falharam pelo mesmo motivo: indica problema de configuração
+  ou de ambiente, não da API. Veja a causa abaixo.
+
+  - Ambiente "prd" não está pronto para os testes:
+    - dados-teste.json ("prd"): preencha empresaId do cliente 19 (empresa de teste do cliente).
+    - Sessão sistema-52 sem acesso à empresa 573350 (status 403): ...
+```
+
+## Problemas conhecidos
+
+Falhas já reportadas aos devs ficam registradas em `problemas-conhecidos.json`:
+
+```json
+{
+  "urlDoChamado": "https://suaempresa.atlassian.net/browse/%s",
+  "problemas": [
+    {
+      "id": "RHNET-123",
+      "descricao": "Erro 401 retorna o campo 'message' em vez de 'mensagem'",
+      "mensagemDoErro": "does not contain key - 'mensagem'",
+      "ambientes": ["hml", "prd"]
+    }
+  ]
+}
+```
+
+- Uma falha é **conhecida** quando a mensagem de erro contém `mensagemDoErro` (trecho ou expressão
+  regular). Use o trecho mais específico possível, para não esconder falhas diferentes.
+- Falhas conhecidas **continuam aparecendo** no terminal, no resumo do GitHub, na página inicial e no
+  relatório (filtro *Resolution*), mas **não reprovam a execução**: só falhas novas deixam o pipeline
+  vermelho.
+- `urlDoChamado` é opcional: com ela, o relatório Allure mostra o link de cada chamado.
+- Quando o bug for corrigido, **remova a entrada**. Se a falha voltar, ela aparece como nova.
+
+## Limpeza de dados de teste órfãos
+
+Os testes removem ao final tudo o que criam. Se uma execução for interrompida no meio, porém, os
+dependentes criados ficam para trás. A limpeza remove esses registros:
+
+| Windows | Linux / Mac |
+|---|---|
+| `.\rodar prd limpeza` | `./rodar.sh prd limpeza` |
+
+Por segurança, ela só remove dependentes que atendem às **duas** condições: pertencem ao colaborador
+de teste do `dados-teste.json` **e** têm o nome com o prefixo `QA AUTO`. A limpeza não roda junto com
+os testes nem gera relatório Allure. No pipeline, ela roda automaticamente ao final de cada execução.
+
+> Não rode a limpeza enquanto outra pessoa estiver executando os testes no mesmo ambiente: ela
+> removeria os dependentes que os testes em andamento acabaram de criar.
+
 ## Relatórios
 
 | Relatório | Onde | Para quê |
@@ -224,6 +289,14 @@ Como os testes usam apenas contas e dados fictícios, os relatórios mostram req
 por completo. Só as **credenciais** são ocultadas (cabeçalho `Authorization` e o JWT do login), porque
 os tokens de parceiro, sistema e cliente são permanentes e os relatórios são publicados. A
 configuração fica em `logging.mask`, no `karate-config.js`.
+
+**Categorias:** a aba *Categorias* do Allure agrupa as falhas pela natureza do problema:
+configuração do ambiente, contrato violado, spec inválida, erro interno da API (5xx), autenticação e
+permissão, validação de dados, pré-condição não atendida e conteúdo da resposta divergente. As regras
+ficam em `allurerc.mjs`.
+
+**Transição e instabilidade:** com o histórico, o Allure marca cada teste como novo, corrigido ou em
+regressão em relação à execução anterior, e como instável quando alterna entre passar e falhar.
 
 **Histórico e tendências:** o Allure guarda um resumo de cada execução anterior (status e duração
 de cada teste) e o usa para os gráficos de tendência e o histórico de cada cenário. As execuções
@@ -315,6 +388,7 @@ Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
 | `@smoke` | Essencial e rápido; indica que a API está de pé |
 | `@regressao` | Regras de negócio detalhadas |
 | `@fluxo` | Fluxos completos (criar -> remover) |
+| `@limpeza` | Limpeza de dados de teste órfãos: nunca roda junto com os testes, só quando pedida |
 | `@ignore` | Features auxiliares ou modelos; nunca executam diretamente |
 
 ### Convenções

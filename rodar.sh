@@ -5,6 +5,7 @@
 #    ./rodar.sh              -> tudo em hml
 #    ./rodar.sh prd          -> tudo em prd
 #    ./rodar.sh hml smoke    -> só os testes @smoke em hml
+#    ./rodar.sh prd limpeza  -> remove dependentes de teste órfãos (sem rodar testes)
 #
 #  O terminal mostra apenas o resumo. A saída completa do Maven
 #  fica em target/execucao.log.
@@ -32,6 +33,7 @@ rm -f target/resumo-execucao.json target/resumo-console.txt
 
 TITULO="Testes em ${AMBIENTE^^}"
 [[ -n "$TAGS" ]] && TITULO="$TITULO - $TAGS"
+[[ "$TAGS" == "@limpeza" ]] && TITULO="Limpeza de dados de teste em ${AMBIENTE^^}"
 echo
 echo "$TITULO"
 echo "Executando... a primeira execução pode levar alguns minutos."
@@ -50,7 +52,16 @@ fi
 
 echo
 cat target/resumo-console.txt
-FALHARAM=$(grep -o '"falharam": *[0-9]*' target/resumo-execucao.json | grep -o '[0-9]*$')
+FALHARAM=$(grep -o '"falhasNovas": *[0-9]*' target/resumo-execucao.json | grep -o '[0-9]*$')
+
+# Limpeza: sem relatório Allure, para não entrar no histórico de tendências dos testes
+if [[ "$TAGS" == "@limpeza" ]]; then
+  echo
+  [[ -f target/limpeza.txt ]] && cat target/limpeza.txt
+  echo "Log completo:      target/execucao.log"
+  [[ "$FALHARAM" == "0" ]]
+  exit $?
+fi
 
 echo
 echo "Gerando relatório Allure..."

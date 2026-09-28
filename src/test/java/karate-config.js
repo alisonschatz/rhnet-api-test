@@ -120,6 +120,27 @@ function fn() {
     };
   }
 
+  // ------------------------------------------------ verificação do ambiente
+  // Antes de qualquer teste (uma única vez): massa de teste completa e acesso de cada sessão
+  // à empresa do seu cliente. Qualquer problema interrompe a execução com a lista completa.
+  var problemasMassa = [];
+  var clientes = ['52', '19'];
+  for (var n = 0; n < clientes.length; n++) {
+    var cli = clientes[n];
+    if (!valorDaMassa(cli, 'empresaId')) {
+      problemasMassa.push('dados-teste.json ("' + ambiente + '"): preencha empresaId do cliente ' + cli + ' (empresa de teste do cliente).');
+    }
+    if (!valorDaMassa(cli, 'funcionarioContribuinteId')) {
+      problemasMassa.push('dados-teste.json ("' + ambiente + '"): preencha funcionarioContribuinteId do cliente ' + cli
+        + ' (colaborador de teste ativo, sem desligamento e já liberado).');
+    }
+  }
+  if (valorDaMassa('52', 'empresaId') && valorDaMassa('52', 'empresaId') === valorDaMassa('19', 'empresaId')) {
+    problemasMassa.push('dados-teste.json ("' + ambiente + '"): os clientes 52 e 19 estão com o mesmo empresaId; cada cliente precisa da sua empresa de teste.');
+  }
+  karate.callSingle('classpath:rhnet/support/verificacao/verificar-ambiente.feature',
+    { baseUrl: urls.rhnetUrl, ambiente: ambiente, sessoes: config.sessoes, problemasMassa: problemasMassa });
+
   config.usarSessao = function (nome) {
     var s = config.sessoes[nome];
     if (!s) karate.fail('Sessão desconhecida: ' + nome);

@@ -51,6 +51,8 @@ def montar(ambiente, status, relatorio_url, execucao_url):
 
     passou = status.get("resultado") == "passou"
     total, falharam = status.get("total", 0), status.get("falharam", 0)
+    conhecidas = status.get("falhasConhecidas", 0) or 0
+    novas = status.get("falhasNovas", falharam)
     campos = [
         {"name": "Cenários", "value": str(total), "inline": True},
         {"name": "Passaram", "value": str(status.get("passaram", 0)), "inline": True},
@@ -58,11 +60,15 @@ def montar(ambiente, status, relatorio_url, execucao_url):
         {"name": "Executado em", "value": status.get("executadoEm", "—"), "inline": True},
         {"name": "Duração", "value": duracao(status.get("duracaoMs")), "inline": True},
     ]
+    if conhecidas:
+        campos.append({"name": "Falhas conhecidas", "value": f"{conhecidas} (já reportadas)", "inline": True})
     if status.get("versao"):
         campos.append({"name": "Versão implantada", "value": status["versao"], "inline": True})
 
-    descricao = ("Todos os cenários passaram." if passou
-                 else f"**{falharam} de {total} cenário(s) falharam.**")
+    if passou:
+        descricao = "Sem falhas novas." if conhecidas else "Todos os cenários passaram."
+    else:
+        descricao = f"**{novas} de {total} cenário(s) com falha nova.**"
     if not relatorio_url:
         descricao += "\nO relatório não pôde ser publicado nesta execução."
     return {

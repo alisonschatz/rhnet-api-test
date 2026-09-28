@@ -1,11 +1,11 @@
 {
-  "_leia-me": "Massa de teste por ambiente e cliente. funcionarioContribuinteId: colaborador de teste ATIVO, SEM desligamento e JÁ LIBERADO. empresaId: opcional; quando null, usa a primeira empresa vinculada ao usuário no token.",
+  "_leia-me": "Massa de teste por ambiente e cliente. empresaId: empresa de teste do cliente (cada cliente com a sua). funcionarioContribuinteId: colaborador de teste dessa empresa, ATIVO, SEM desligamento e JÁ LIBERADO.",
   "hml": {
-    "52": { "funcionarioContribuinteId": "PREENCHER", "empresaId": null },
-    "19": { "funcionarioContribuinteId": "PREENCHER", "empresaId": null }
+    "52": { "empresaId": "PREENCHER", "funcionarioContribuinteId": "PREENCHER" },
+    "19": { "empresaId": "PREENCHER", "funcionarioContribuinteId": "PREENCHER" }
   },
   "prd": {
-    "52": { "funcionarioContribuinteId": "PREENCHER", "empresaId": 951 },
-    "19": { "funcionarioContribuinteId": "PREENCHER", "empresaId": 951 }
+    "52": { "empresaId": "PREENCHER", "funcionarioContribuinteId": "PREENCHER" },
+    "19": { "empresaId": "PREENCHER", "funcionarioContribuinteId": "PREENCHER" }
   }
 }

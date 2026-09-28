@@ -142,13 +142,36 @@ jobs:
           DONO="${GITHUB_REPOSITORY_OWNER,,}"
           URL="https://$DONO.github.io/${GITHUB_REPOSITORY#*/}/$AMBIENTE/"
           if [ -f target/resumo-execucao.json ]; then
-            FALHARAM=$(jq -r '.falharam' target/resumo-execucao.json)
+            NOVAS=$(jq -r '.falhasNovas' target/resumo-execucao.json)
+            CONHECIDAS=$(jq -r '.falhasConhecidas' target/resumo-execucao.json)
             TOTAL=$(jq -r '.total' target/resumo-execucao.json)
-            echo "::error title=Testes com falha em $AMB::$FALHARAM de $TOTAL cenários falharam em $AMB. Relatório: $URL"
+            echo "::error title=Falhas novas em $AMB::$NOVAS de $TOTAL cenários com falha nova em $AMB ($CONHECIDAS falha(s) conhecida(s)). Relatório: $URL"
           else
             echo "::error title=Testes não executados em $AMB::Não foi possível executar os testes em $AMB. Veja o log do passo 'Executar testes'."
           fi
           exit 1
+
+      # Remove dependentes de teste que ficaram para trás (ex.: execução anterior interrompida).
+      # Roda depois do relatório pronto e nunca altera o resultado da execução.
+      - name: Limpeza de dados de teste órfãos
+        if: always() && steps.testes.outcome != 'skipped'
+        continue-on-error: true
+        env:
+          SCI_PARCEIRO_TOKEN: ${{ secrets.SCI_PARCEIRO_TOKEN }}
+          SCI_SISTEMA_52_TOKEN: ${{ secrets.SCI_SISTEMA_52_TOKEN }}
+          SCI_SISTEMA_19_TOKEN: ${{ secrets.SCI_SISTEMA_19_TOKEN }}
+          SCI_CLIENTE_52_TOKEN: ${{ secrets.SCI_CLIENTE_52_TOKEN }}
+          SCI_CLIENTE_19_TOKEN: ${{ secrets.SCI_CLIENTE_19_TOKEN }}
+        run: |
+          bash mvnw -B --no-transfer-progress test -Dkarate.env=$AMBIENTE -Dtags=@limpeza -Drodar=true \
+            -Dmaven.test.failure.ignore=true > target/limpeza.log 2>&1 || true
+          if [ -f target/limpeza.txt ]; then
+            cat target/limpeza.txt
+            { echo ""; echo "**Limpeza de dados de teste:**"; sed 's/^/- /' target/limpeza.txt; } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=Limpeza não concluída::Veja o log do passo 'Limpeza de dados de teste órfãos'."
+            tail -n 30 target/limpeza.log
+          fi
 
   publicar:
     name: Publicar relatório (${{ github.event.inputs.ambiente || (github.event.action == 'deploy-prd' && 'prd' || 'hml') }})

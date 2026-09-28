@@ -6,6 +6,7 @@ REM
 REM    .\rodar              -> tudo em hml (no PowerShell, use sempre .\rodar)
 REM    .\rodar prd          -> tudo em prd
 REM    .\rodar hml smoke    -> so os testes @smoke em hml
+REM    .\rodar prd limpeza  -> remove dependentes de teste orfaos (sem rodar testes)
 REM
 REM  O terminal mostra apenas o resumo. A saida completa do Maven
 REM  fica em target\execucao.log.
@@ -36,6 +37,7 @@ set AMB=HML
 if /I "%AMBIENTE%"=="prd" set AMB=PRD
 set TITULO=Testes em %AMB%
 if not "%TAGS%"=="" set TITULO=Testes em %AMB% - %TAGS%
+if /I "%TAGS%"=="@limpeza" set TITULO=Limpeza de dados de teste em %AMB%
 
 if not exist target mkdir target
 del /q target\resumo-execucao.json target\resumo-console.txt 2>nul
@@ -60,7 +62,17 @@ exit /b 1
 echo.
 type target\resumo-console.txt
 set FALHARAM=1
-for /f %%i in ('powershell -NoProfile -Command "(Get-Content -Raw -Encoding UTF8 target\resumo-execucao.json | ConvertFrom-Json).falharam"') do set FALHARAM=%%i
+for /f %%i in ('powershell -NoProfile -Command "(Get-Content -Raw -Encoding UTF8 target\resumo-execucao.json | ConvertFrom-Json).falhasNovas"') do set FALHARAM=%%i
+
+REM Limpeza: sem relatório Allure, para não entrar no histórico de tendências dos testes
+if /I not "%TAGS%"=="@limpeza" goto relatorio
+echo.
+if exist "target\limpeza.txt" type target\limpeza.txt
+echo Log completo:      target\execucao.log
+if "%FALHARAM%"=="0" exit /b 0
+exit /b 1
+
+:relatorio
 
 echo.
 echo Gerando relatório Allure...

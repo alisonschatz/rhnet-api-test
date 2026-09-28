@@ -44,6 +44,11 @@ def cartao(amb, titulo, s):
     e = lambda v: html.escape(str(v)) if v not in (None, "") else "—"
     passou = s.get("resultado") == "passou"
     total, passaram, falharam = s.get("total"), s.get("passaram"), s.get("falharam")
+    conhecidas = s.get("falhasConhecidas") or 0
+    if passou:
+        selo = "Sem falhas novas" if conhecidas else "Todos passaram"
+    else:
+        selo = "Com falhas novas" if "falhasNovas" in s else "Com falhas"
 
     metricas = barra = ""
     if total is not None:
@@ -60,6 +65,8 @@ def cartao(amb, titulo, s):
         </div>"""
 
     detalhes = [("Executado em", e(s.get("executadoEm")))]
+    if conhecidas:
+        detalhes.append(("Falhas conhecidas", f"{conhecidas} (já reportadas)"))
     if "duracaoMs" in s:
         detalhes.append(("Duração", duracao(s["duracaoMs"])))
     if s.get("versao"):
@@ -77,7 +84,7 @@ def cartao(amb, titulo, s):
       <section class="cartao">
         <div class="cartao-topo">
           <div><h2>{titulo}</h2><div class="ambiente">{amb.upper()}</div></div>
-          <span class="status {'passou' if passou else 'falhou'}">{'Todos passaram' if passou else 'Com falhas'}</span>
+          <span class="status {'passou' if passou else 'falhou'}">{selo}</span>
         </div>{metricas}
         <dl class="detalhes">{dl}</dl>
         <div class="acoes">

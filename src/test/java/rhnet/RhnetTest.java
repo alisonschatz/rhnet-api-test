@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *   ./mvnw test -Dkarate.env=prd                 -> tudo, em PRD
  *   ./mvnw test -Dkarate.env=prd -Dtags=@smoke   -> só smoke, em PRD
  *   ./mvnw test -Dtags=@smoke,@regressao         -> smoke OU regressao
+ *   ./mvnw test -Dtags=@limpeza                  -> só a limpeza de dados de teste órfãos
  *
  * Relatórios gerados:
  *   target/karate-reports/karate-summary.html   detalhe técnico (Karate)
@@ -37,6 +38,7 @@ class RhnetTest {
 
         // Cada execução gera um relatório Allure próprio, sem resultados de execuções anteriores
         limpar(Path.of("target", "allure-results"));
+        Files.deleteIfExists(Path.of("target", "limpeza.txt"));
 
         Runner.Builder runner = Runner.path("classpath:rhnet/features")
                 .karateEnv(ambiente)
@@ -45,8 +47,13 @@ class RhnetTest {
                 // O console mostra só o resumo abaixo; o detalhe de cada cenário fica nos relatórios
                 .outputConsoleSummary(false)
                 .listener(new AllureKarate());
-        if (!tags.isEmpty()) {
+        // A limpeza de dados órfãos (@limpeza) nunca roda junto com os testes: só quando pedida
+        if (tags.contains("@limpeza")) {
             runner.tags(tags);
+        } else if (tags.isEmpty()) {
+            runner.tags("~@limpeza");
+        } else {
+            runner.tags(tags, "~@limpeza");
         }
 
         SuiteResult resultado = runner.parallel(threads);
@@ -56,8 +63,9 @@ class RhnetTest {
             System.out.println();
             System.out.println(ResumoExecucao.console(resultado, ambiente));
         }
-        int falhas = resultado.getScenarioFailedCount();
-        assertEquals(0, falhas, falhas + " cenário(s) falharam. Detalhes nos relatórios Allure e Karate.");
+        // Só falhas NOVAS reprovam a execução; as conhecidas (problemas-conhecidos.json) apenas aparecem
+        int novas = ResumoExecucao.falhasNovas(resultado, ambiente);
+        assertEquals(0, novas, novas + " cenário(s) com falha nova. Detalhes nos relatórios Allure e Karate.");
     }
 
     private static void limpar(Path pasta) throws IOException {
