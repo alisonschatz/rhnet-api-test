@@ -5,6 +5,9 @@
 #    ./rodar.sh              -> tudo em hml
 #    ./rodar.sh prd          -> tudo em prd
 #    ./rodar.sh hml smoke    -> só os testes @smoke em hml
+#
+#  O terminal mostra apenas o resumo. A saída completa do Maven
+#  fica em target/execucao.log.
 # ------------------------------------------------------------
 cd "$(dirname "$0")"
 
@@ -24,39 +27,49 @@ fi
 
 [[ -n "$TAGS" && "$TAGS" != @* ]] && TAGS="@$TAGS"
 
-echo
-echo "=== Rodando testes em $AMBIENTE $TAGS ==="
-echo
+mkdir -p target
+rm -f target/resumo-execucao.json target/resumo-console.txt
 
-bash ./mvnw -B --no-transfer-progress test -Dkarate.env="$AMBIENTE" ${TAGS:+-Dtags=$TAGS}
-RESULTADO=$?
+echo
+echo "Testes em $AMBIENTE $TAGS"
+echo "Executando... a primeira execução pode levar alguns minutos."
 
-if [[ ! -d "target/allure-results" ]]; then
+bash ./mvnw -B --no-transfer-progress test -Dkarate.env="$AMBIENTE" -Drodar=true \
+  -Dmaven.test.failure.ignore=true ${TAGS:+-Dtags=$TAGS} > target/execucao.log 2>&1
+
+if [[ ! -f target/resumo-console.txt ]]; then
   echo
-  echo "=== A EXECUÇÃO FALHOU ANTES DOS TESTES - veja as mensagens acima ==="
-  exit $RESULTADO
+  echo "=== A EXECUÇÃO FALHOU ANTES DOS TESTES ==="
+  echo "Últimas linhas do log (completo em target/execucao.log):"
+  echo
+  tail -n 40 target/execucao.log
+  exit 1
 fi
 
 echo
-echo "=== Gerando relatório Allure ==="
-ALLURE_AMBIENTE="$AMBIENTE" bash ./mvnw -B --no-transfer-progress -q allure:report
+cat target/resumo-console.txt
+FALHARAM=$(grep -o '"falharam": *[0-9]*' target/resumo-execucao.json | grep -o '[0-9]*$')
+
+echo
+echo "Gerando relatório Allure..."
+ALLURE_AMBIENTE="$AMBIENTE" bash ./mvnw -B --no-transfer-progress allure:report > target/allure.log 2>&1
 
 ALLURE="target/allure-report/index.html"
 DETALHE="target/karate-reports/karate-summary.html"
 abrir() {
-  if command -v open > /dev/null; then open "$1"
+  if command -v open > /dev/null; then open "$1" 2> /dev/null
   elif command -v xdg-open > /dev/null; then xdg-open "$1" > /dev/null 2>&1
   fi
 }
 
 echo
-if [[ $RESULTADO -eq 0 ]]; then
-  echo "=== TODOS OS TESTES PASSARAM ==="
+if [[ -f "$ALLURE" ]]; then
+  echo "Relatório Allure:  $ALLURE"
 else
-  echo "=== HÁ TESTES FALHANDO ==="
+  echo "Relatório Allure não gerado: veja target/allure.log"
 fi
-echo
-echo "Relatório Allure:   $ALLURE"
-echo "Detalhe técnico:    $DETALHE"
+echo "Detalhe técnico:   $DETALHE"
+echo "Log completo:      target/execucao.log"
 if [[ -f "$ALLURE" ]]; then abrir "$ALLURE"; else abrir "$DETALHE"; fi
-exit $RESULTADO
+
+[[ "$FALHARAM" == "0" ]]

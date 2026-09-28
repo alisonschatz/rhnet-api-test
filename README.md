@@ -172,7 +172,27 @@ cinco tokens.
 | `.\rodar prd` | `./rodar.sh prd` | Tudo em prd |
 | `.\rodar hml smoke` | `./rodar.sh hml smoke` | Só os testes com a tag `@smoke` |
 
-Ao terminar, o relatório Allure abre no navegador. No Prompt de Comando (cmd), o `.\` é opcional.
+O terminal mostra só o resumo: o resultado e, se houver, cada falha com o motivo em uma linha.
+
+```
+Testes em prd
+Executando... a primeira execução pode levar alguns minutos.
+
+Resultado em PRD: 133 de 136 cenários passaram | 3 falharam | 2 min 14 s
+
+Falhas:
+  - Dependentes - cadastro: Cadastro com nome acima de 255 caracteres é rejeitado (400)
+      status code was: 201, expected: 400
+  ...
+
+Relatório Allure:  target/allure-report/index.html
+Detalhe técnico:   target/karate-reports/karate-summary.html
+Log completo:      target/execucao.log
+```
+
+Ao terminar, o relatório Allure abre no navegador. A saída completa do Maven fica em
+`target/execucao.log` e só é exibida no terminal quando a execução falha **antes** dos testes
+(por exemplo, credenciais ausentes ou erro de compilação). No Prompt de Comando (cmd), o `.\` é opcional.
 
 Sem o atalho: `.\mvnw test -Dkarate.env=hml` e depois `.\mvnw allure:report`.
 Pela IDE: rode a classe `RhnetTest` (para prd, adicione `-Dkarate.env=prd` nas VM options).

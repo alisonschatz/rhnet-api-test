@@ -19,6 +19,7 @@ import java.util.Locale;
  * Gera, ao final da execução:
  *   target/resumo-execucao.md    tabela de resultados em português, exibida no GitHub Actions
  *   target/resumo-execucao.json  números da execução, usados na página inicial publicada
+ *   target/resumo-console.txt    resumo curto exibido no terminal (resultado e falhas)
  * Falhas na geração nunca alteram o resultado dos testes.
  *
  * Para manter o resumo curto, ele traz apenas a primeira linha de cada falha:
@@ -40,9 +41,46 @@ public final class ResumoExecucao {
                     montar(resultado, ambiente, momento), StandardCharsets.UTF_8);
             Files.writeString(Path.of("target", "resumo-execucao.json"),
                     json(resultado, ambiente, momento), StandardCharsets.UTF_8);
+            Files.writeString(Path.of("target", "resumo-console.txt"),
+                    console(resultado, ambiente), StandardCharsets.UTF_8);
         } catch (Exception e) {
             System.err.println("Não foi possível gerar o resumo da execução: " + e.getMessage());
         }
+    }
+
+    /** Resumo curto para o terminal: o resultado geral e, se houver, cada falha em duas linhas. */
+    public static String console(SuiteResult resultado, String ambiente) {
+        int total = resultado.getScenarioCount();
+        int falhas = resultado.getScenarioFailedCount();
+        StringBuilder sb = new StringBuilder();
+        sb.append("Resultado em ").append(ambiente.toUpperCase(Locale.ROOT)).append(": ")
+          .append(resultado.getScenarioPassedCount()).append(" de ").append(total).append(" cenários passaram")
+          .append(falhas > 0 ? " | " + falhas + " falharam" : "")
+          .append(" | ").append(duracao(resultado.getDurationMillis())).append("\n");
+        if (falhas > 0) {
+            sb.append("\nFalhas:\n");
+            int exibidas = 0;
+            for (FeatureResult fr : resultado.getFeatureResults()) {
+                for (ScenarioResult r : fr.getScenarioResults()) {
+                    if (!r.isFailed()) {
+                        continue;
+                    }
+                    if (exibidas++ == 20) {
+                        sb.append("  ... e mais ").append(falhas - 20).append(" (veja o relatório)\n");
+                        return sb.toString();
+                    }
+                    sb.append("  - ").append(r.getScenario().getFeature().getName())
+                      .append(": ").append(r.getScenario().getName()).append("\n")
+                      .append("      ").append(primeiraLinha(r.getFailureMessage())).append("\n");
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String duracao(long ms) {
+        long segundos = Math.round(ms / 1000.0);
+        return segundos < 60 ? segundos + " s" : (segundos / 60) + " min " + (segundos % 60) + " s";
     }
 
     private static String json(SuiteResult resultado, String ambiente, String momento) {

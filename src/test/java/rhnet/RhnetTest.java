@@ -1,8 +1,6 @@
 package rhnet;
 
-import io.karatelabs.core.FeatureResult;
 import io.karatelabs.core.Runner;
-import io.karatelabs.core.ScenarioResult;
 import io.karatelabs.core.SuiteResult;
 import io.qameta.allure.karate.AllureKarate;
 import org.junit.jupiter.api.Test;
@@ -44,6 +42,8 @@ class RhnetTest {
                 .karateEnv(ambiente)
                 // O relatório do Karate é substituído a cada execução; o histórico fica no Allure
                 .backupOutputDir(false)
+                // O console mostra só o resumo abaixo; o detalhe de cada cenário fica nos relatórios
+                .outputConsoleSummary(false)
                 .listener(new AllureKarate());
         if (!tags.isEmpty()) {
             runner.tags(tags);
@@ -51,20 +51,13 @@ class RhnetTest {
 
         SuiteResult resultado = runner.parallel(threads);
         ResumoExecucao.gerar(resultado, ambiente);
-        assertEquals(0, resultado.getScenarioFailedCount(), falhas(resultado));
-    }
-
-    private static String falhas(SuiteResult resultado) {
-        StringBuilder sb = new StringBuilder();
-        for (FeatureResult fr : resultado.getFeatureResults()) {
-            for (ScenarioResult sr : fr.getScenarioResults()) {
-                if (sr.isFailed()) {
-                    sb.append("\n").append(sr.getScenario().getName()).append("\n")
-                      .append(sr.getFailureMessage()).append("\n");
-                }
-            }
+        // Os scripts rodar exibem o resumo por conta própria (-Drodar=true); IDE e pipeline, aqui
+        if (!Boolean.getBoolean("rodar")) {
+            System.out.println();
+            System.out.println(ResumoExecucao.console(resultado, ambiente));
         }
-        return sb.toString();
+        int falhas = resultado.getScenarioFailedCount();
+        assertEquals(0, falhas, falhas + " cenário(s) falharam. Detalhes nos relatórios Allure e Karate.");
     }
 
     private static void limpar(Path pasta) throws IOException {
