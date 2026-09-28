@@ -12,8 +12,10 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Gera, ao final da execução:
@@ -48,7 +50,10 @@ public final class ResumoExecucao {
         }
     }
 
-    /** Resumo curto para o terminal: o resultado geral e, se houver, cada falha em duas linhas. */
+    /**
+     * Resumo curto para o terminal: o resultado geral e as falhas agrupadas por causa.
+     * Cenários que falharam pelo mesmo motivo aparecem em uma única entrada.
+     */
     public static String console(SuiteResult resultado, String ambiente) {
         int total = resultado.getScenarioCount();
         int falhas = resultado.getScenarioFailedCount();
@@ -57,25 +62,105 @@ public final class ResumoExecucao {
           .append(resultado.getScenarioPassedCount()).append(" de ").append(total).append(" cenários passaram")
           .append(falhas > 0 ? " | " + falhas + " falharam" : "")
           .append(" | ").append(duracao(resultado.getDurationMillis())).append("\n");
-        if (falhas > 0) {
-            sb.append("\nFalhas:\n");
-            int exibidas = 0;
-            for (FeatureResult fr : resultado.getFeatureResults()) {
-                for (ScenarioResult r : fr.getScenarioResults()) {
-                    if (!r.isFailed()) {
-                        continue;
-                    }
-                    if (exibidas++ == 20) {
-                        sb.append("  ... e mais ").append(falhas - 20).append(" (veja o relatório)\n");
-                        return sb.toString();
-                    }
-                    sb.append("  - ").append(r.getScenario().getFeature().getName())
-                      .append(": ").append(r.getScenario().getName()).append("\n")
-                      .append("      ").append(primeiraLinha(r.getFailureMessage())).append("\n");
+        if (falhas == 0) {
+            return sb.toString();
+        }
+
+        // Agrupa os cenários com falha pela causa
+        Map<List<String>, List<String>> porCausa = new LinkedHashMap<>();
+        for (FeatureResult fr : resultado.getFeatureResults()) {
+            for (ScenarioResult r : fr.getScenarioResults()) {
+                if (r.isFailed()) {
+                    porCausa.computeIfAbsent(causaEOnde(r.getFailureMessage()), k -> new ArrayList<>())
+                            .add(r.getScenario().getFeature().getName() + ": " + r.getScenario().getName());
+                }
+            }
+        }
+
+        sb.append("\nFalhas (").append(porCausa.size()).append(porCausa.size() == 1 ? " causa" : " causas").append("):\n");
+        if (porCausa.size() == 1 && falhas == total && total > 1) {
+            sb.append("  Todos os cenários falharam pelo mesmo motivo: indica problema de configuração\n")
+              .append("  ou de ambiente, não da API. Veja a causa abaixo.\n");
+        }
+        int exibidas = 0;
+        for (Map.Entry<List<String>, List<String>> causa : porCausa.entrySet()) {
+            if (exibidas++ == 15) {
+                sb.append("\n  ... e mais ").append(porCausa.size() - 15).append(" causa(s) (veja o relatório)\n");
+                break;
+            }
+            String motivo = causa.getKey().get(0);
+            String onde = causa.getKey().get(1);
+            List<String> cenarios = causa.getValue();
+            sb.append("\n");
+            if (cenarios.size() == 1) {
+                sb.append("  - ").append(cenarios.get(0)).append("\n")
+                  .append("      ").append(motivo).append("\n");
+                if (!onde.isEmpty()) {
+                    sb.append("      Onde: ").append(onde).append("\n");
+                }
+            } else {
+                sb.append("  - ").append(motivo).append("\n");
+                if (!onde.isEmpty()) {
+                    sb.append("      Onde: ").append(onde).append("\n");
+                }
+                sb.append("      ").append(cenarios.size()).append(" cenários, entre eles:\n");
+                for (int i = 0; i < Math.min(3, cenarios.size()); i++) {
+                    sb.append("        ").append(cenarios.get(i)).append("\n");
                 }
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * Causa de uma falha em uma linha, e onde ela ocorreu (quando informado).
+     * - Erros de JavaScript do Karate ("js failed:"): usa as linhas "Error:" e "Code:".
+     * - Falhas de status: remove o tempo de resposta e a URL, que já estão no relatório.
+     * - Falhas de match: acrescenta a linha que descreve a divergência.
+     */
+    static List<String> causaEOnde(String mensagem) {
+        if (mensagem == null || mensagem.isBlank()) {
+            return List.of("Falha sem mensagem (veja o relatório)", "");
+        }
+        String erro = null;
+        String codigo = "";
+        for (String linha : mensagem.split("\\R")) {
+            String l = linha.trim();
+            if (l.startsWith("Error:") && erro == null) {
+                erro = l.substring(6).trim();
+            } else if (l.startsWith("Code:") && codigo.isEmpty()) {
+                codigo = limitar(l.substring(5).trim(), 100);
+            }
+        }
+        if (erro != null) {
+            return List.of(limitar(erro, 220), codigo);
+        }
+        String primeira = primeiraLinha(mensagem);
+        int corte = primeira.indexOf(", response time");
+        if (corte > 0) {
+            primeira = primeira.substring(0, corte);
+        }
+        if (primeira.startsWith("match failed")) {
+            String[] linhas = mensagem.split("\\R");
+            for (int i = 1; i < linhas.length; i++) {
+                String l = linhas[i].trim();
+                if (!l.isEmpty() && !l.matches("=+")) {
+                    primeira = primeira + ": " + limitar(l, 160);
+                    break;
+                }
+            }
+        }
+        return List.of(primeira, "");
+    }
+
+    /** Causa em uma única linha (usada na tabela do resumo em Markdown). */
+    static String motivo(String mensagem) {
+        List<String> c = causaEOnde(mensagem);
+        return c.get(1).isEmpty() ? c.get(0) : c.get(0) + " (em: " + c.get(1) + ")";
+    }
+
+    private static String limitar(String texto, int max) {
+        return texto.length() > max ? texto.substring(0, max) + "..." : texto;
     }
 
     private static String duracao(long ms) {
@@ -144,7 +229,7 @@ public final class ResumoExecucao {
             md.append("| ").append(r.isFailed() ? "❌ Falhou" : "✅ Passou")
               .append(" | ").append(celula(r.getScenario().getFeature().getName()))
               .append(" | ").append(celula(r.getScenario().getName()))
-              .append(" | ").append(r.isFailed() ? celula(primeiraLinha(r.getFailureMessage())) : "")
+              .append(" | ").append(r.isFailed() ? celula(motivo(r.getFailureMessage())) : "")
               .append(" |\n");
         }
         md.append("\nO relatório completo desta execução é publicado no GitHub Pages (link abaixo).\n");
@@ -167,8 +252,8 @@ public final class ResumoExecucao {
         }
         for (String linha : texto.split("\\R")) {
             String l = linha.trim();
-            if (!l.isEmpty() && !l.matches("=+")) {
-                return l.length() > 200 ? l.substring(0, 200) + "..." : l;
+            if (!l.isEmpty() && !l.matches("=+") && !l.equals("js failed:")) {
+                return limitar(l, 200);
             }
         }
         return "";

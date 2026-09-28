@@ -172,23 +172,35 @@ cinco tokens.
 | `.\rodar prd` | `./rodar.sh prd` | Tudo em prd |
 | `.\rodar hml smoke` | `./rodar.sh hml smoke` | Só os testes com a tag `@smoke` |
 
-O terminal mostra só o resumo: o resultado e, se houver, cada falha com o motivo em uma linha.
+O terminal mostra só o resumo: o resultado e, se houver falhas, **cada causa uma única vez**, com
+os cenários afetados. Várias falhas pelo mesmo motivo aparecem agrupadas.
 
 ```
-Testes em prd
+Testes em PRD
 Executando... a primeira execução pode levar alguns minutos.
 
-Resultado em PRD: 133 de 136 cenários passaram | 3 falharam | 2 min 14 s
+Resultado em PRD: 131 de 136 cenários passaram | 5 falharam | 2 min 14 s
 
-Falhas:
+Falhas (2 causas):
+
   - Dependentes - cadastro: Cadastro com nome acima de 255 caracteres é rejeitado (400)
       status code was: 201, expected: 400
-  ...
+
+  - match failed: EQUALS: $.mensagem | not a string | actual: null
+      4 cenários, entre eles:
+        Dependentes - consulta: Consulta sem token de acesso é rejeitada (401)
+        Dependentes - cadastro: Cadastro sem token de acesso é rejeitado (401)
+        ...
+
+Gerando relatório Allure...
 
 Relatório Allure:  target/allure-report/index.html
 Detalhe técnico:   target/karate-reports/karate-summary.html
 Log completo:      target/execucao.log
 ```
+
+Quando **todos** os cenários falham pela mesma causa, o resumo avisa que o problema é de
+configuração ou de ambiente (credenciais, massa de teste, rede), e não da API.
 
 Ao terminar, o relatório Allure abre no navegador. A saída completa do Maven fica em
 `target/execucao.log` e só é exibida no terminal quando a execução falha **antes** dos testes

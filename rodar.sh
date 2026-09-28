@@ -30,8 +30,10 @@ fi
 mkdir -p target
 rm -f target/resumo-execucao.json target/resumo-console.txt
 
+TITULO="Testes em ${AMBIENTE^^}"
+[[ -n "$TAGS" ]] && TITULO="$TITULO - $TAGS"
 echo
-echo "Testes em $AMBIENTE $TAGS"
+echo "$TITULO"
 echo "Executando... a primeira execução pode levar alguns minutos."
 
 bash ./mvnw -B --no-transfer-progress test -Dkarate.env="$AMBIENTE" -Drodar=true \

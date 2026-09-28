@@ -17,12 +17,12 @@ set AMBIENTE=%~1
 if "%AMBIENTE%"=="" set AMBIENTE=hml
 
 if /I not "%AMBIENTE%"=="hml" if /I not "%AMBIENTE%"=="prd" (
-  echo Ambiente invalido: %AMBIENTE%. Use hml ou prd.
+  echo Ambiente inválido: %AMBIENTE%. Use hml ou prd.
   exit /b 1
 )
 
 if not exist ".env.%AMBIENTE%" (
-  echo Arquivo .env.%AMBIENTE% nao encontrado.
+  echo Arquivo .env.%AMBIENTE% não encontrado.
   echo Copie o .env.example para .env.%AMBIENTE% e preencha as credenciais.
   exit /b 1
 )
@@ -32,12 +32,17 @@ if "%TAGS%"=="" goto tags_ok
 if not "%TAGS:~0,1%"=="@" set TAGS=@%TAGS%
 :tags_ok
 
+set AMB=HML
+if /I "%AMBIENTE%"=="prd" set AMB=PRD
+set TITULO=Testes em %AMB%
+if not "%TAGS%"=="" set TITULO=Testes em %AMB% - %TAGS%
+
 if not exist target mkdir target
 del /q target\resumo-execucao.json target\resumo-console.txt 2>nul
 
 echo.
-echo Testes em %AMBIENTE% %TAGS%
-echo Executando... a primeira execucao pode levar alguns minutos.
+echo %TITULO%
+echo Executando... a primeira execução pode levar alguns minutos.
 
 set ARGS=-B --no-transfer-progress test -Dkarate.env=%AMBIENTE% -Drodar=true -Dmaven.test.failure.ignore=true
 if not "%TAGS%"=="" set ARGS=%ARGS% -Dtags=%TAGS%
@@ -45,8 +50,8 @@ call mvnw.cmd %ARGS% > target\execucao.log 2>&1
 
 if exist "target\resumo-console.txt" goto testes_ok
 echo.
-echo === A EXECUCAO FALHOU ANTES DOS TESTES ===
-echo Ultimas linhas do log - completo em target\execucao.log:
+echo === A EXECUÇÃO FALHOU ANTES DOS TESTES ===
+echo Últimas linhas do log - completo em target\execucao.log:
 echo.
 powershell -NoProfile -Command "Get-Content -Encoding UTF8 target\execucao.log -Tail 40"
 exit /b 1
@@ -58,15 +63,15 @@ set FALHARAM=1
 for /f %%i in ('powershell -NoProfile -Command "(Get-Content -Raw -Encoding UTF8 target\resumo-execucao.json | ConvertFrom-Json).falharam"') do set FALHARAM=%%i
 
 echo.
-echo Gerando relatorio Allure...
+echo Gerando relatório Allure...
 set ALLURE_AMBIENTE=%AMBIENTE%
 call mvnw.cmd -B --no-transfer-progress allure:report > target\allure.log 2>&1
 
 set ALLURE=target\allure-report\index.html
 set DETALHE=target\karate-reports\karate-summary.html
 echo.
-if exist "%ALLURE%" (echo Relatorio Allure:  %ALLURE%) else (echo Relatorio Allure nao gerado - veja target\allure.log)
-echo Detalhe tecnico:   %DETALHE%
+if exist "%ALLURE%" (echo Relatório Allure:  %ALLURE%) else (echo Relatório Allure não gerado - veja target\allure.log)
+echo Detalhe técnico:   %DETALHE%
 echo Log completo:      target\execucao.log
 if exist "%ALLURE%" (start "" "%ALLURE%") else (start "" "%DETALHE%")
 
