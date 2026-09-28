@@ -187,8 +187,10 @@ Pela IDE: rode a classe `RhnetTest` (para prd, adicione `-Dkarate.env=prd` nas V
 | **Detalhe técnico (Karate)** | `target/karate-reports/karate-summary.html` | Investigação detalhada de uma falha, passo a passo. |
 | **Resumo da execução** | `target/resumo-execucao.md` | Tabela de resultados. No GitHub Actions, aparece direto na página da execução. |
 
-Dados sensíveis (token, CPF, salário e outros) são mascarados em todos os relatórios, conforme a
-configuração `logging.mask` do `karate-config.js`.
+Como os testes usam apenas contas e dados fictícios, os relatórios mostram requisições e respostas
+por completo. Só as **credenciais** são ocultadas (cabeçalho `Authorization` e o JWT do login), porque
+os tokens de parceiro, sistema e cliente são permanentes e os relatórios são publicados. A
+configuração fica em `logging.mask`, no `karate-config.js`.
 
 **Histórico e tendências:** o Allure guarda um resumo de cada execução anterior (status e duração
 de cada teste) e o usa para os gráficos de tendência e o histórico de cada cenário. As execuções
@@ -285,7 +287,8 @@ Scenario: Consulta sem sistema_id é rejeitada com erro de validação (400)
 3. **Toda resposta testada chama `validarContrato()`** logo após o `status`.
 4. **Nada de ID fixo.** Busque um registro existente e use o ID dele; os dados de hml e prd são diferentes.
 5. **Quem cria, remove.** O ID vai para `criados` antes de qualquer verificação, e o `afterScenario` limpa.
-6. **Só contas de teste e dados sintéticos, com o prefixo `QA AUTO`.** Nunca use dados reais (LGPD).
+6. **Só contas de teste e dados sintéticos, com o prefixo `QA AUTO`.** Os relatórios mostram os dados
+   por completo, então nunca use dados reais.
 7. **Credenciais só em variáveis de ambiente ou secrets.**
 8. **Exceção de contrato só com motivo**, registrada em `contrato-ignorar.txt`.
 
@@ -340,7 +343,7 @@ ambiente e confirme. Ao final, a execução terá dois jobs concluídos: **Teste
 Ainda em **Settings → Pages**, confira a visibilidade do site.
 
 > Em planos sem controle de acesso ao Pages, o site de um repositório privado fica **público na
-> internet**. Os relatórios mascaram dados sensíveis, mas mostram endpoints, parâmetros e respostas
+> internet**. Os relatórios ocultam as credenciais, mas mostram endpoints, parâmetros e respostas
 > da API. No GitHub Enterprise Cloud, selecione a visibilidade **Private** para restringir o acesso
 > a quem tem acesso ao repositório. Sem essa opção, avalie com o time antes de manter o site ativo.
 

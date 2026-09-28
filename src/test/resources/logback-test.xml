@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Console limpo: uma linha por requisição e as mensagens dos testes.
-  O detalhe completo (cabeçalhos e corpos, já mascarados) fica nos relatórios.
+  O detalhe completo (cabeçalhos e corpos) fica nos relatórios.
 -->
 <configuration>
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">

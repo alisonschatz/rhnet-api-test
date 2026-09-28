@@ -85,12 +85,13 @@ function fn() {
   // Sem sessão padrão: cada cenário escolhe a sua com usarSessao(...)
   karate.configure('headers', { Accept: 'application/json' });
 
-  // Mascaramento de dados sensíveis (LGPD) em logs, relatório do Karate e anexos do Allure
+  // Os testes usam apenas contas e dados fictícios, que aparecem por completo nos relatórios.
+  // Só as credenciais são ocultadas: o cabeçalho Authorization (que no login carrega os tokens
+  // permanentes de parceiro, sistema e cliente) e o JWT devolvido pelo login.
   karate.configure('logging', {
     mask: {
       headers: ['Authorization', 'Cookie'],
-      jsonPaths: ['$..token', '$..cpf', '$..pis', '$..nis', '$..rg', '$..cnh', '$..ctps',
-                  '$..titulo_eleitor', '$..salario', '$..remuneracao', '$..conta', '$..senha'],
+      jsonPaths: ['$..token'],
       replacement: '***'
     }
   });

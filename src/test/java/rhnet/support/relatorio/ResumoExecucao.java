@@ -21,8 +21,8 @@ import java.util.Locale;
  *   target/resumo-execucao.json  números da execução, usados na página inicial publicada
  * Falhas na geração nunca alteram o resultado dos testes.
  *
- * Por segurança, o resumo traz apenas a primeira linha de cada falha (sem corpos de resposta):
- * o detalhe completo, com dados mascarados, fica nos relatórios Allure e Karate.
+ * Para manter o resumo curto, ele traz apenas a primeira linha de cada falha:
+ * o detalhe completo fica nos relatórios Allure e Karate.
  */
 public final class ResumoExecucao {
 
