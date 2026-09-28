@@ -34,7 +34,8 @@ sempre com **usuários e contas exclusivos para teste**. Todo dado criado é rem
 ├── spec/
 │   ├── hml/  rhnetsocial.json, INFO.md # spec oficial e histórico de cada ambiente
 │   └── prd/  rhnetsocial.json, INFO.md
-├── allurerc.mjs                        # configuração do Allure Report (idioma, nome, histórico por ambiente)
+├── allurerc.mjs                        # configuração do Allure Report (idioma, histórico por ambiente)
+├── scripts/NomeRelatorioAllure.java    # define o nome do relatório Allure (ver Relatórios)
 ├── rodar.cmd / rodar.sh                # atalho para rodar localmente
 ├── pom.xml                             # dependências do projeto
 ├── mvnw / mvnw.cmd / .mvn/             # Maven Wrapper (não precisa instalar Maven)
@@ -251,6 +252,10 @@ passaram e que falharam), data, duração, versão implantada, spec em uso e os 
 e para a execução no GitHub Actions. Segue o mesmo sistema de design do Allure Report (fonte, cores,
 temas claro e escuro). Para alterar textos ou layout, edite `.github/pages/index.html`; o conteúdo
 dos cartões é montado por `.github/scripts/gerar_pagina_inicial.py`.
+
+**Nome do relatório:** "RH NET Social · Testes de API (HML/PRD)", no cabeçalho e na aba do navegador.
+O plugin do Maven fixa o nome como "Allure", então ele é ajustado logo após a geração por
+`scripts/NomeRelatorioAllure.java` (usado pelos scripts `rodar` e pelo pipeline).
 
 **Idioma:** os relatórios Allure abrem em português por padrão (`allurerc.mjs`). Quem trocar o idioma
 no próprio relatório mantém a escolha, que fica salva no navegador.

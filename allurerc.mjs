@@ -4,6 +4,9 @@
 // - Histórico de tendências separado por ambiente, para que hml e prd não se misturem.
 // - Interface em português por padrão (quem trocar o idioma no relatório mantém a própria escolha).
 // - No GitHub Actions, o relatório exibe o link da execução que o gerou.
+//
+// O nome do relatório não é definido aqui: o plugin allure-maven o fixa como "Allure".
+// Ele é ajustado depois da geração por scripts/NomeRelatorioAllure.java.
 import { fileURLToPath } from "node:url";
 
 const ambiente = process.env.ALLURE_AMBIENTE || "hml";
@@ -23,7 +26,6 @@ export default {
   plugins: {
     awesome: {
       options: {
-        reportName: `RH NET Social · Testes de API (${ambiente.toUpperCase()})`,
         reportLanguage: "pt",
         ...(execucaoGithub && { ci: execucaoGithub }),
       },

@@ -55,6 +55,7 @@ FALHARAM=$(grep -o '"falharam": *[0-9]*' target/resumo-execucao.json | grep -o '
 echo
 echo "Gerando relatório Allure..."
 ALLURE_AMBIENTE="$AMBIENTE" bash ./mvnw -B --no-transfer-progress allure:report > target/allure.log 2>&1
+java scripts/NomeRelatorioAllure.java target/allure-report/index.html "$AMBIENTE" >> target/allure.log 2>&1
 
 ALLURE="target/allure-report/index.html"
 DETALHE="target/karate-reports/karate-summary.html"

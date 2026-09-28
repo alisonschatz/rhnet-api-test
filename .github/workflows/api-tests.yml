@@ -90,7 +90,9 @@ jobs:
         if: always() && hashFiles('target/allure-results/**') != ''
         env:
           ALLURE_AMBIENTE: ${{ env.AMBIENTE }}
-        run: bash mvnw -B --no-transfer-progress allure:report
+        run: |
+          bash mvnw -B --no-transfer-progress allure:report
+          java scripts/NomeRelatorioAllure.java target/allure-report/index.html "$AMBIENTE"
 
       - name: Resumo da execução
         if: always()

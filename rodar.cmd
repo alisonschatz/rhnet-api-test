@@ -66,6 +66,7 @@ echo.
 echo Gerando relatório Allure...
 set ALLURE_AMBIENTE=%AMBIENTE%
 call mvnw.cmd -B --no-transfer-progress allure:report > target\allure.log 2>&1
+java scripts\NomeRelatorioAllure.java target\allure-report\index.html %AMBIENTE% >> target\allure.log 2>&1
 
 set ALLURE=target\allure-report\index.html
 set DETALHE=target\karate-reports\karate-summary.html
